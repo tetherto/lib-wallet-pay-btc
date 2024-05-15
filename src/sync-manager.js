@@ -39,16 +39,61 @@ class UTXOManager {
   }
 }
 
+class UnspentStore {
+
+  constructor() {
+    this.vin = []
+    this.vout = []
+  }
+
+  add(utxo, vinout) {
+    if(vinout === 'in') {
+      this.vin.push(utxo)
+    }
+    if(vinout === 'out') {
+      this.vout.push(utxo)
+    }
+  }
+
+  process() {
+    this.vout = this.vout.filter((utxo) => {
+      return !this.vin.some((vin) => {
+        return vin.prev_txid === utxo.txid && vin.prev_index === utxo.index
+      })
+    }).sort((a, b) => a.value.minus(b.value).toString())
+  }
+
+  getUtxoForAmount(amount, strategy) {
+
+    // small to large
+    return this._smallToLarge(amount)
+
+  }
+
+  _smallToLarge(amount) {
+    let total = new Bitcoin(0, amount.type)
+    let utxo = []
+    for(let index in this.vout) {
+      const v = this.vout[index]
+      total = total.add(v.value)
+      utxo.push(v)
+      if(total.gte(amount)) {
+        break
+      }
+    }
+    const diff = total.minus(amount)
+    return {utxo, total, diff}
+
+  }
+
+}
+
 class Balance {
 
   constructor(confirmed, pending, mempool) {
     this.confirmed = new Bitcoin(confirmed, 'main')
     this.pending = new Bitcoin(pending,'main')
     this.mempool = new Bitcoin(mempool, 'main')
-  }
-
-  utxo(state, utxo) {
-
   }
 }
 
@@ -111,8 +156,8 @@ class SyncManager extends EventEmitter {
 
       await Promise.all(txHistory.map((tx) => {
         const txState = this._getTxState(tx)
-        this._processUtxo(tx.out, 'out', txState, tx.fee, addr.address,tx.txid)
-        this._processUtxo(tx.in, 'in', txState, 0, addr.address, tx.txid)
+        this._processUtxo(tx.out, 'out', txState, tx.fee, addr ,tx.txid)
+        this._processUtxo(tx.in, 'in', txState, 0, addr, tx.txid)
       }))
       const data = _addr.get(addr.address)
       if(data) {
@@ -140,6 +185,7 @@ class SyncManager extends EventEmitter {
       fee: new Balance(0,0,0)
     }
     this._addr = new Map()
+    this._unspent = new UnspentStore()
   }
 
   async syncAccount(pathType, opts) {
@@ -168,6 +214,8 @@ class SyncManager extends EventEmitter {
       this.emit('synced-path', pathType, path, hasBalance, [gapCount, this.gapLimit, gapEnd])
     })
 
+    if(this._halt) return 
+    this._unspent.process()
   }
 
   getBalance(addr) {
@@ -192,10 +240,12 @@ class SyncManager extends EventEmitter {
     return 'pending'
   }
 
-  _processUtxo(utxoList, inout, txState, txFee = 0, address, txid) {
+  _processUtxo(utxoList, inout, txState, txFee = 0, addr, txid) {
     const { _addr, _total }  = this
     utxoList.forEach((utxo) => {
-      if(utxo.address === address && _addr.has(utxo.address)){
+      utxo.address_public_key = addr.publicKey
+      utxo.address_path = addr.path
+      if(utxo.address === addr.address && _addr.has(utxo.address)){
         const bal = _addr.get(utxo.address)
         bal[inout][txState] = bal[inout][txState].add(utxo.value)
         _total[inout][txState] = _total[inout][txState].add(utxo.value)
@@ -206,6 +256,7 @@ class SyncManager extends EventEmitter {
           bal.intxid.add(utxo.prev_txid)
         }
         _addr.set(utxo.address, bal)
+        this._unspent.add(utxo, inout)
       }
     })
   }
@@ -220,10 +271,9 @@ class SyncManager extends EventEmitter {
 
   isStopped() { return this._halt }
 
-  utxoForAmount(value) {
+  utxoForAmount(value, strategy) {
     const amount = new Bitcoin(value.amount, value.unit)
-    console.log(amount)
-
+    return this._unspent.getUtxoForAmount(amount, strategy)
   }
 }
 

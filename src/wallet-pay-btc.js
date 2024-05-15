@@ -162,20 +162,20 @@ class WalletPayBitcoin extends WalletPay {
 
   async sendTransaction(opts, outgoing) {
 
-    const utxos =  this._syncManager.utxoForAmount(outgoing)
     // TODO: Keep track of unspent outputs
+    console.log('sending...')
     const tx = new Transaction({
       network: this.network,
       provider: this.provider,
-      key_manager: this.keyManager,
-      db: this.state,
+      keyManager: this.keyManager,
       getInternalAddress: this._getInternalAddress.bind(this),
-      utxos
+      syncManager: this._syncManager
     })
 
-    const send = await tx.send({
+    await tx.send({
       address: outgoing.address, 
-      value: outgoing.value,
+      amount: outgoing.amount,
+      unit: outgoing.unit,
       fee: outgoing.fee
     })
     

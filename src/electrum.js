@@ -103,6 +103,10 @@ class Electrum extends EventEmitter {
     return this._makeRequest('blockchain.scripthash.get_balance', [scriptHash])
   }
 
+  async broadcastTransaction(tx) {
+    return this._makeRequest('blockchain.transaction.broadcast', [tx])
+  }
+
   async getTransaction(txid, sc) {
     const cache = this.cache
     const data = {
@@ -128,6 +132,8 @@ class Electrum extends EventEmitter {
     let totalOut = new Bitcoin(0, 'main')
     data.out = tx.vout.map((vout) => {
       const newvout = this._processTxVout(vout)
+      newvout.index = vout.n
+      newvout.txid = txid
       totalOut = totalOut.add(newvout.value)
       return newvout
     })
@@ -137,6 +143,8 @@ class Electrum extends EventEmitter {
       const txDetail = await getOrFetch(vin.txid)
       const newvin = this._processTxVout(txDetail.vout[vin.vout])
       newvin.prev_txid = vin.txid
+      newvin.prev_index = vin.vout
+      newvin.txid = txid
       totalIn = totalIn.add(newvin.value)
       return newvin
     }))
