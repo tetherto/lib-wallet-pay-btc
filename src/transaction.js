@@ -17,15 +17,19 @@ class Transaction extends EventEmitter {
 
   async send(opts) {
     const tx = await this._createTransaction(opts)
-    return this._broadcastTransaction(tx)
+    const txid = await this._broadcastTransaction(tx)
+    if(txid?.message) {
+      this._syncManager.unlockUtxo(false)
+      throw new Error('Broadcast failed: '+txid.message.split("\n").shift())
+      return tx
+    }
+    this._syncManager.unlockUtxo(true)
+    
+    return tx
   }
 
   async _broadcastTransaction(tx) {
-
-    const res = await this.provider.broadcastTransaction(tx.hex)
-
-    console.log(res)
-
+    return this.provider.broadcastTransaction(tx.hex)
   }
 
   _generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, weight=1) {
@@ -55,7 +59,7 @@ class Transaction extends EventEmitter {
     
     const totalFee = Bitcoin.BN(fee).times(weight)
     const change = Bitcoin.BN(total.toBaseUnit()).minus(sendAmount.toBaseUnit()).minus(totalFee).toNumber()
-    
+
     psbt.addOutput({
       address,
       value: +sendAmount.toBaseUnit() 
@@ -75,24 +79,25 @@ class Transaction extends EventEmitter {
       totalFee: totalFee.toNumber(),
       vSize: tx.virtualSize(),
       hex: tx.toHex(),
-      txid: tx.getId()
+      txid: tx.getId(),
+      utxo,
+      vout: tx.outs
     }
   }
 
   async _createTransaction({ address, amount, unit, fee}) {
 
-
     if(!fee || fee <= 0 || fee > this._max_fee_limit) throw new Error('Invalid fee '+fee)
 
     const changeAddr = await this._getInternalAddress()
     const sendAmount = new Bitcoin(amount, unit)
-    const utxoSet =  this._syncManager.utxoForAmount({ amount, unit})
+    const utxoSet =  this._syncManager.utxoForAmount({ amount, unit })
 
     // Generate a fake transaction to determine weight of the transaction
     // then we create a new tx with correct fee
     const fakeTx = this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr)
     const realTx = this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, fakeTx.vSize)
-    console.log(realTx)
+    realTx.changeAddress = changeAddr
     return realTx
 
   }

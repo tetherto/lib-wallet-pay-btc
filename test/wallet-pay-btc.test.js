@@ -120,12 +120,10 @@ test("WalletPayBitcoin", function(t) {
             btcPay.off('synced-path', resumeHandler)
           }
           btcPay.on('synced-path', resumeHandler)
-          btcPay.once('sync-end', () => {
-            if(pass) return resolve()
-            t.fail(`${sType} did not resume syncing`)
-            resolve()
-          })
           await btcPay.syncTransactions()
+          if(pass) return resolve()
+          t.fail(`${sType} did not resume syncing`)
+          resolve()
         }
 
         btcPay.on('synced-path', syncPause)
@@ -150,7 +148,8 @@ test("WalletPayBitcoin", function(t) {
 
         try {
           const bal = btcPay.getBalance(addr.address)
-          t.ok(eBal.confirmed.toString() === bal.confirmed.toBaseUnit(), `addr: ${addr.address} confirmed matches electrum`) 
+          const balTotal = bal.confirmed.add(bal.pending).toBaseUnit()
+          t.ok(eBal.confirmed.toString() === balTotal, `addr: ${addr.address} confirmed matches electrum`) 
           t.ok(eBal.unconfirmed.toString() === bal.mempool.toBaseUnit(), `addr: ${addr.address} mempool matches electrum`) 
           total += +bal.confirmed.toMainUnit() + +bal.mempool.toMainUnit()
         } catch(err) {
@@ -206,27 +205,3 @@ test("WalletPayBitcoin", function(t) {
 
 })
 
-
-//test.test('sendTransaction', async function(t) {
-//  t.test('sendBasic', async function(t) {
-//    //TODO: 
-//    return
-//    const mnemonic = "sell clock better horn digital prevent image toward sort first voyage detail inner regular improve"
-//    const btcPay = new BitcoinPay({
-//      asset_name: 'btc',
-//      provider: await newElectrum(),
-//      key_manager: new KeyManager({
-//        seed: await BIP39Seed.generate(mnemonic)
-//      }),
-//      store: new WalletStoreMemory(),
-//      network: 'regtest'
-//    })
-//
-//    await btcPay.initialize({})
-//    const addr = await btcPay.getNewAddress()
-//    const changeAddr = await btcPay._getInternalAddress()
-//    await btcPay.syncTransactions()
-//
-//    await btcPay.sendTransaction({}, { address: "bc1qggnasd834t54yulsep6fta8lpjekv4zj6gv5rf", value: 10000 })
-//  })
-//})

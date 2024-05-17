@@ -47,9 +47,14 @@ class Electrum extends EventEmitter {
       this.emit('request-error', err)
       return 
     }
+    
+    if(resp?.method?.includes('.subscribe')) {
+      this.emit(resp.method, resp.params.pop())
+      return
+    }
     const _resp = this.requests.get(resp.id)
     const [resolve, reject, method] =_resp || []
-    if(!resolve) return this.emit('error', `no handler for id: ${method} - ${resp.id}`)
+    if(!resolve) return this.emit('error', `no handler for id: ${resp.method} - ${resp.id}`)
 
     resolve(resp.result || resp.error) 
 
@@ -159,6 +164,10 @@ class Electrum extends EventEmitter {
   }
 
   async subscribeToBlocks() {
+    this.on('blockchain.headers.subscribe', (height) => {
+      this.block_height = height.height
+      this.emit('new-block', height)
+    })
     const height = await this._makeRequest('blockchain.headers.subscribe', [])
     this.block_height = height.height
     this.emit('new-block', height)

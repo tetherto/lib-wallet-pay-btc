@@ -137,19 +137,21 @@ class WalletPayBitcoin extends WalletPay {
   * @param {Object} opts - Options
   * @param {Number} opts.restart - Restart sync from 0 
   */ 
-  async syncTransactions(opts) {
+  syncTransactions(opts) {
+    return new Promise( async (resolve, reject) => {
+      await this._syncManager.ready()
 
-    await this._syncManager.ready()
-
-    await this._syncManager.syncAccount('external', opts)
-    if(this._syncManager.isStopped()) {
-      this.emit('sync-end')
+      await this._syncManager.syncAccount('external', opts)
+      if(this._syncManager.isStopped()) {
+        this._syncManager.resumeSync()
+        this.emit('sync-end')
+        return resolve()
+      }
+      await this._syncManager.syncAccount('internal', opts)
       this._syncManager.resumeSync()
-      return 
-    }
-    await this._syncManager.syncAccount('internal', opts)
-    this._syncManager.resumeSync()
-    this.emit('sync-end')
+      this.emit('sync-end')
+      resolve()
+    })
   }
 
   async pauseSync() {
@@ -163,7 +165,6 @@ class WalletPayBitcoin extends WalletPay {
   async sendTransaction(opts, outgoing) {
 
     // TODO: Keep track of unspent outputs
-    console.log('sending...')
     const tx = new Transaction({
       network: this.network,
       provider: this.provider,
@@ -172,13 +173,8 @@ class WalletPayBitcoin extends WalletPay {
       syncManager: this._syncManager
     })
 
-    await tx.send({
-      address: outgoing.address, 
-      amount: outgoing.amount,
-      unit: outgoing.unit,
-      fee: outgoing.fee
-    })
-    
+    const res = await tx.send(outgoing)
+    return res
   }
 
   async getTransaction(opts, txid) {
