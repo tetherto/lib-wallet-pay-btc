@@ -95,7 +95,7 @@ class Electrum extends EventEmitter {
   _processTxVout(vout) {
     return {
       address: this._getTxAddress(vout.scriptPubKey),
-      value: new Bitcoin(vout.value, 'main'),
+      value: new Bitcoin(Math.abs(vout.value), 'main'),
       witness_hex: vout.scriptPubKey.hex
     }
   }
@@ -172,6 +172,8 @@ class Electrum extends EventEmitter {
     this.block_height = height.height
     this.emit('new-block', height)
   }
+
+
 
   close() {
     this._client.end()

@@ -2,6 +2,7 @@
 const { EventEmitter } = require('events')
 const HdWallet = require('./hdwallet.js')
 const { Bitcoin } = require('../../wallet/src/currency.js')
+const UnspentStore = require('./unspent-store.js')
 
 class UTXOManager {
 
@@ -37,89 +38,6 @@ class UTXOManager {
     const txs = this.store.keys('tx_')
     return txs 
   }
-}
-
-class UnspentStore {
-
-  constructor() {
-    this.vin = []
-    this.vout = []
-    this.ready = false
-    this.locked = new Set()
-  }
-
-  add(utxo, vinout) {
-    if(vinout === 'in') {
-      this.vin.push(utxo)
-    }
-    if(vinout === 'out') {
-      this.vout.push(utxo)
-    }
-  }
-
-  process() {
-    this.vout = this.vout.filter((utxo) => {
-      return !this.vin.some((vin) => {
-        return vin.prev_txid === utxo.txid && vin.prev_index === utxo.index
-      })
-    })
-    this._sort()
-    this.ready = true
-  }
-
-  _sort() {
-    this.vout = this.vout.sort((a, b) => a.value.minus(b.value).toString())
-  }
-
-  lock(id) {
-    const exists = this.vout.some((utxo) => utxo.txid === id )
-    if(this.locked.has(id)) return false
-    if(!exists) return false 
-    this.locked.add(id)
-    return true
-  }
-
-  getUtxoForAmount(amount, strategy) {
-    if(!this.ready) throw new Error("not ready. tx in progress")
-    this.ready = false
-    // small to large
-    return this._smallToLarge(amount)
-  }
-
-  unlock(state) {
-    if(!state) {
-      this.locked.clear()
-      this.ready = true
-      return 
-    }
-
-    this.locked.forEach((id) => {
-      this.vout = this.vout.filter((utxo) => utxo.txid !== id)
-    })
-    this.locked.clear()
-    this._sort()
-    this.ready = true
-
-  }
-
-
-  _smallToLarge(amount) {
-    let total = new Bitcoin(0, amount.type)
-    let utxo = []
-    for(let index in this.vout) {
-      const v = this.vout[index]
-      if(this.locked.has(v.txid)) continue
-      total = total.add(v.value)
-      utxo.push(v)
-      this.locked.add(v.txid)
-      if(total.gte(amount)) {
-        break
-      }
-    }
-    const diff = total.minus(amount)
-    return {utxo, total, diff}
-  }
-
 }
 
 class Balance {
@@ -225,6 +143,8 @@ class SyncManager extends EventEmitter {
     }
     this._addr = new Map()
     this._unspent = new UnspentStore()
+    this.resumeSync()
+    this.state.resetSyncState()
   }
 
   async syncAccount(pathType, opts) {
@@ -245,6 +165,10 @@ class SyncManager extends EventEmitter {
       gapEnd = res[2]
       gapCount = res[3]
       if(!done) return halt()
+      // Update path tracking to not reuse addresses
+      if(hasBalance) {
+        hdWallet.updateLastPath(HdWallet.bumpIndex(path))
+      }
       count++ 
       syncState[pathType].path = path
       syncState[pathType].gap = gapCount
@@ -257,18 +181,23 @@ class SyncManager extends EventEmitter {
     this._unspent.process()
   }
 
+  async syncAddress(opts, address) {
+
+  }
+
   getBalance(addr) {
     let total
     if(!addr) {
       total = this._total 
     } else {
       total = this._addr.get(addr)
-      if(!total) throw new Error('Address not found '+ addr)
+      if(!total) throw new Error('Address not valid or not processed for balance '+ addr)
     }
     const totalBalance = new Balance(0, 0, 0)
     totalBalance.mempool = total.out.mempool.minus(total.in.mempool)
     totalBalance.confirmed = total.out.confirmed.minus(total.in.confirmed)
-    totalBalance.pending = total.in.pending.minus(total.out.pending)
+    if(totalBalance.confirmed.toNumber() < 0) throw new Error(addr)
+    totalBalance.pending = total.in.pending.minus(total.out.pending).abs()
     return totalBalance
   }
 

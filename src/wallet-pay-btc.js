@@ -30,6 +30,15 @@ class StateDb {
     return state
   }
 
+  resetSyncState() {
+    const state = {
+      internal: { path : null, gap: 0, gapEnd: null },
+      external: { path : null, gap: 0 , gapEnd: null}
+    }
+    this.store.put('sync_state', state)
+    return state
+  }
+
   async setSyncState(state) {
     return this.store.put('sync_state', state)
   }
@@ -112,8 +121,8 @@ class WalletPayBitcoin extends WalletPay {
     const addrType = HdWallet.getAddressType(path)
     const addr = this.keyManager.addrFromPath(path, addrType)
     this.emit('new-address', addr)
-    path = HdWallet.bumpExternalIndex(path)
-    this._hdWallet.updatePath(path)
+    path = HdWallet.bumpIndex(path)
+    this._hdWallet.updateLastPath(path)
     return addr
   }
 
@@ -123,13 +132,13 @@ class WalletPayBitcoin extends WalletPay {
     const addr = this.keyManager.addrFromPath(path, addrType)
 
     path = HdWallet.bumpInternalIndex(path)
-    this._hdWallet.updatePath(path)
+    this._hdWallet.updateLastPath(path)
     this.emit('new-address', this.latest_addr)
     return addr
   }
 
-  getBalance(opts) {
-    return this._syncManager.getBalance(opts)
+  getBalance(opts, addr) {
+    return this._syncManager.getBalance(addr)
   }
 
   /**
@@ -137,9 +146,12 @@ class WalletPayBitcoin extends WalletPay {
   * @param {Object} opts - Options
   * @param {Number} opts.restart - Restart sync from 0 
   */ 
-  syncTransactions(opts) {
+  syncTransactions(opts = {}) {
     return new Promise( async (resolve, reject) => {
       await this._syncManager.ready()
+      if(opts?.reset) {
+        await this._syncManager.reset()
+      }
 
       await this._syncManager.syncAccount('external', opts)
       if(this._syncManager.isStopped()) {
@@ -164,7 +176,6 @@ class WalletPayBitcoin extends WalletPay {
 
   async sendTransaction(opts, outgoing) {
 
-    // TODO: Keep track of unspent outputs
     const tx = new Transaction({
       network: this.network,
       provider: this.provider,
@@ -172,25 +183,23 @@ class WalletPayBitcoin extends WalletPay {
       getInternalAddress: this._getInternalAddress.bind(this),
       syncManager: this._syncManager
     })
+    let res
+    try {
+      res = await tx.send(outgoing)
+    } catch(err) {
+      throw err
+    }
 
-    const res = await tx.send(outgoing)
+    // TODO: Update utxo manager
+    // TODO  sync when it is confirmed 
+
     return res
   }
 
-  async getTransaction(opts, txid) {
-  }
-  
   isValidAddress(address) {
     return this._makeRequest('blockchain.address.get_balance', [address])
   }
 
 }
-
-// TODO: Subscribe to transactions
-// TODO: Get balance
-// TODO: Send transaction
-// TODO: Get transaction history
-//        Track sync state to go offline and online and resume
-
 
 module.exports = WalletPayBitcoin

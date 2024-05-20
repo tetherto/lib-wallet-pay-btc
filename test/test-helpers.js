@@ -17,15 +17,18 @@ async function newElectrum(config = {}) {
 }
 
 let _regtest
-async function regtestNode() {
+async function regtestNode(opts = {}) {
   if(_regtest) return _regtest
   _regtest = new bitcoinTest.BitcoinCore({})
   await _regtest.init()
-  const mine = await _regtest.mine({ blocks: 1 })
+  if(!opts.mine) return _regtest
+  await _regtest.mine({ blocks: 1 })
   return _regtest
 } 
 
-async function activeWallet(config) {
+
+const _store = new WalletStoreMemory()
+async function activeWallet(config = {}) {
   const mnemonic = "sell clock better horn digital prevent image toward sort first voyage detail inner regular improve"
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
@@ -33,7 +36,7 @@ async function activeWallet(config) {
     key_manager: new KeyManager({
       seed: await BIP39Seed.generate(mnemonic)
     }),
-    store: new WalletStoreMemory(),
+    store: config.store || _store,
     network: 'regtest'
   })
 
@@ -43,6 +46,7 @@ async function activeWallet(config) {
 }
 
 async function pause(ms) {
+  console.log('Pausing.... ' + ms + 'ms')
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve()

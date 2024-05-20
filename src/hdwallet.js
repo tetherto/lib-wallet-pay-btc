@@ -32,7 +32,6 @@ class HdWallet {
     if(!currentPath) {
       await this.store.put('current_internal_path', INIT_INTERNAL_PATH)
       await this.store.put('current_external_path', INIT_EXTERNAL_PATH)
-      await this.store.put('addr_count', 0)
       await this.store.put('account_index', [this._formatAccountPath(INIT_EXTERNAL_PATH)])
     }
   }
@@ -56,12 +55,7 @@ class HdWallet {
     return this.store.get('current_external_path')
   }
 
-  async _updateAddrCount() {
-    const addrCount = await this.store.get('addr_count')
-    this.store.put('addr_count', addrCount + 1)
-  }
-
-  async updatePath(path) {
+  async updateLastPath(path) {
     const parsed = HdWallet.parsePath(path)
     if(parsed.change) {
       return this.store.put('current_internal_path', path)
@@ -94,9 +88,8 @@ class HdWallet {
     return HdWallet.mergePath(parsed)
   }
 
-  static bumpInternalIndex(path) {
+  static bumpIndex(path) {
     const parsed = HdWallet.parsePath(path)
-    parsed.change = 1
     parsed.index += 1
     return HdWallet.mergePath(parsed)
   }
@@ -105,13 +98,6 @@ class HdWallet {
     const parsed = HdWallet.parsePath(path)
     parsed.change = 1
     parsed.index = index
-    return HdWallet.mergePath(parsed)
-  }
-
-  static bumpExternalIndex(path) {
-    const parsed = HdWallet.parsePath(path)
-    parsed.change = 0 
-    parsed.index += 1
     return HdWallet.mergePath(parsed)
   }
 
@@ -146,18 +132,11 @@ class HdWallet {
           console.log(e)
           throw new Error('Failed to iterate through accounts '+ e)
         }
-        path = this._bumpPathIndex(addrType, path)
+        path = HdWallet.bumpIndex(path)
         process.nextTick(run)
       }
       process.nextTick(run)
     })
-  }
-
-  _bumpPathIndex(addrType, path) {
-    if(addrType === 'external') {
-      return HdWallet.bumpExternalIndex(path)
-    } 
-    return HdWallet.bumpInternalIndex(path)
   }
 
   async eachAccount(addrType, state, fn) {
@@ -171,7 +150,7 @@ class HdWallet {
         path = HdWallet.setPurpose(path, purpose)
         path = HdWallet.setAccount(path, accountIndex)
       } else {
-        path = this._bumpPathIndex(addrType, state)
+        path = HdWallet.bumpIndex(state)
       } 
       let next = true
       await this._processPath(addrType, path, fn)

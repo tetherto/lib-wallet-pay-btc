@@ -24,7 +24,6 @@ class Transaction extends EventEmitter {
       return tx
     }
     this._syncManager.unlockUtxo(true)
-    
     return tx
   }
 
@@ -33,10 +32,10 @@ class Transaction extends EventEmitter {
   }
 
   _generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, weight=1) {
-    const { keyManager } = this
-
-    const psbt = new bitcoin.Psbt({ network: bitcoin.networks[this.network] })
+    const { keyManager, network } = this
     const { utxo, total } = utxoSet 
+    const psbt = new bitcoin.Psbt({ network: bitcoin.networks[network] })
+
     utxo.forEach((utxo, index) => {
       psbt.addInput({
         hash: utxo.txid,
@@ -59,6 +58,8 @@ class Transaction extends EventEmitter {
     
     const totalFee = Bitcoin.BN(fee).times(weight)
     const change = Bitcoin.BN(total.toBaseUnit()).minus(sendAmount.toBaseUnit()).minus(totalFee).toNumber()
+
+    if(change < 0) throw new Error('Invalid change calcualted: '+change)
 
     psbt.addOutput({
       address,

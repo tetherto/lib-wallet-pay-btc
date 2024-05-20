@@ -12,6 +12,7 @@
   "scripts": {
     "test": "npm run test:all",
     "test:all": "brittle ./test/*.js",
+    "test:sync": "brittle ./test/sync-manager.test.js",
     "test:send-tx": "brittle ./test/transactions.test.js",
     "test:pay": "brittle ./test/wallet-pay-btc.test.js",
     "test:electrum": "brittle ./test/*.js"

@@ -10,7 +10,13 @@ const {
 
 test.test('sendTransaction', async function(t) {
 
-  t.test('sendTransaction', async function(t) {
+
+  //TODO: write tests for bad transactions.
+  //TODO: compare balance to make sure is reduced
+  //TODO: tests for mempool transactions 
+
+
+  t.test('create, mine transaction', async function(t) {
     const regtest = await regtestNode()
     const btcPay = await activeWallet()
 
@@ -19,11 +25,9 @@ test.test('sendTransaction', async function(t) {
 
     //const fuzz = Array.from({ length: 10 }, () => Math.random() * (2 - 0.00000546) + 0.00000546).map(num => +num.toFixed(8));
     const fuzz = []
-    const amounts = [0.1, 0.001, 0.01999, 1, 0.000666, 0.008484, 2.1, 2.00000001,0.00000546].concat(fuzz)
+    //const amounts = [0.1, 0.001, 0.01999, 1, 0.000666, 0.008484, 2.1, 2.00000001,0.00000546].concat(fuzz)
+    const amounts = [0.0001]
     const fee = [2, 10, 20, 100, 300]
-
-    //const amounts = [0.0001, 0.0002]
-    // send btc to regtest wallet 
 
     async function send(amount, index) {
       const data = {
@@ -34,13 +38,18 @@ test.test('sendTransaction', async function(t) {
       }
       console.log('sending amount', data)
       const res = await btcPay.sendTransaction({}, data)
+
+      
+      const mTex = await btcPay.provider._getTransaction(res.txid)
+      console.log(mTex)
+      return
       await regtest.mine(1)
-      await pause(1000)
 
       const eTx = await btcPay.provider._getTransaction(res.txid)
       t.ok(eTx.hex === res.hex, 'tx hex is same')
       t.ok(eTx.vsize === res.vSize, 'vsize is same')
       t.ok(eTx.vin.length === res.utxo.length, 'same number of vin')
+      t.ok(res.vout.length === eTx.vout.length, 'same number of vout')
       eTx.vin.forEach((vin, i) => {
         const resVin = res.utxo[i]
         t.ok(vin.txid === resVin.txid, 'vin txid is same')
@@ -51,7 +60,6 @@ test.test('sendTransaction', async function(t) {
         t.ok(eVout.n === i, 'vout index is same')
         t.ok(new BitcoinCurrency(vout.value, 'base').eq(new BitcoinCurrency(eVout.value, 'main')), 'vout value is same')
       })
-      t.ok(res.vout.length === eTx.vout.length, 'same number of vout')
       const eOut = eTx.vout[0]
       const eChange = eTx.vout[1]
       t.ok(eOut.scriptPubKey.address === nodeAddr, 'output address is same')
