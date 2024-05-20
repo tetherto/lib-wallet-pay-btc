@@ -196,7 +196,6 @@ class SyncManager extends EventEmitter {
     const totalBalance = new Balance(0, 0, 0)
     totalBalance.mempool = total.out.mempool.minus(total.in.mempool)
     totalBalance.confirmed = total.out.confirmed.minus(total.in.confirmed)
-    if(totalBalance.confirmed.toNumber() < 0) throw new Error(addr)
     totalBalance.pending = total.in.pending.minus(total.out.pending).abs()
     return totalBalance
   }
