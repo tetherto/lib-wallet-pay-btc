@@ -131,7 +131,7 @@ class WalletPayBitcoin extends WalletPay {
     const addrType = HdWallet.getAddressType(path)
     const addr = this.keyManager.addrFromPath(path, addrType)
 
-    path = HdWallet.bumpInternalIndex(path)
+    path = HdWallet.bumpIndex(path)
     this._hdWallet.updateLastPath(path)
     this.emit('new-address', this.latest_addr)
     return addr

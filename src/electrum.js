@@ -14,13 +14,26 @@ class Electrum extends EventEmitter {
     this.cache = new Map()
     this.block_height = 0
     this._max_cache_size = 100
+    this._reconnect_count = 0
+    this._max_attempt = 10
+    this._reconnect_interval = 2000
   }
 
-  async connect() {
+  /**
+  * Connect to electrum server
+  * @param {Object} opts - options
+  * @param {Boolean} opts.reconnect - reconnect if connection is lost.
+  **/
+  connect(opts = {}) {
+    let isDone = false
+
+    if(opts.reconnect) this._reconnect_count = 0
     return new Promise((resolve, reject) => {
-      this._client = this._net.createConnection(this.port, this.host, (connect) => {
+      this._client = this._net.createConnection(this.port, this.host, () => {
         this.clientState = 1
+        this._reconnect_count = 0
         resolve()
+        isDone = true
       })
       this._client.on('data', (data) => {
         const response = data.toString().split('\n')
@@ -29,14 +42,33 @@ class Electrum extends EventEmitter {
           this._handleResponse(data)
         })
       })
-      this._client.on('close', () => {
+      this._client.once('close', async (err) => {
         this.clientState = 0
-        this.emit('close')
+        this._reconn(resolve,reject, _err)
       })
-      this._client.on('error', (err) => {
-        this.emit('error', err)
+      let _err
+      this._client.once('error', (err) => {
+        _err = err
+        this.clientState = 0
       })
     })
+  }
+
+  async _reconn(resolve, reject, err = {}) {
+    const errMsg = err.message || err.errors?.map(e => e.message).join(' ')
+    if(this._reconnect_count >= this._max_attempt) return reject(new Error('gave up connecting to electrum '+ errMsg))
+    setTimeout(async () => {
+      if(this._reconnect_count >= this._max_attempt) return reject(new Error('gave up connecting to electrum '+ errMsg))
+      this._reconnect_count++
+      try {
+        await this.connect()
+      } catch(err) {
+        if(this._reconnect_count >= this._max_attempt) return reject(err)
+        await this._reconn(resolve, reject)
+        return
+      }
+      resolve()
+    }, this._reconnect_interval)
   }
 
   _handleResponse(data) {
@@ -60,6 +92,7 @@ class Electrum extends EventEmitter {
 
     !method.includes('.subscribe') ? this.requests.delete(resp.id) : null
   }
+
 
   _getNewId () {
     const id = Date.now() +"_"+this.requests.size+"_"+parseInt(Math.random() * 1000) 
@@ -95,7 +128,7 @@ class Electrum extends EventEmitter {
   _processTxVout(vout) {
     return {
       address: this._getTxAddress(vout.scriptPubKey),
-      value: new Bitcoin(Math.abs(vout.value), 'main'),
+      value: new Bitcoin(vout.value, 'main'),
       witness_hex: vout.scriptPubKey.hex
     }
   }
@@ -173,10 +206,13 @@ class Electrum extends EventEmitter {
     this.emit('new-block', height)
   }
 
-
-
   close() {
-    this._client.end()
+    return new Promise((resolve) => {
+      this.clientState = 0
+      this._reconnect_count = this._max_attempt
+      this._client.on('end', () => resolve())
+      this._client.end()
+    })
   }
 
   rpc(method, params) {
@@ -184,8 +220,10 @@ class Electrum extends EventEmitter {
   }
 
   _makeRequest (method, params) {
-    return new Promise((resolve, reject) => {
-      if(this.clientState !== 1) throw new Error('Not connected')
+    return new Promise( async (resolve, reject) => {
+      if(this.clientState !== 1) {
+        return reject(new Error('client not connected'))
+      }
       const id = this._getNewId()
       const data = this._rpcPayload(method, params, id)
       this._client.write(data+"\n")

@@ -24,8 +24,6 @@ class WalletKeyBitcoin {
   * @desc Derives a bitcoin address from a BIP32 path
   */
   addrFromPath(path, addrType) {
-    //const childPath = path.split('/').slice(4).join('/')
-    //console.log(childPath, path)
     const node = this.bip32.derivePath(path)
     let address =  bitcoin.payments[addrType]({ pubkey: node.publicKey, network: this.network }).address;
     return {

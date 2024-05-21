@@ -11,8 +11,13 @@ const BitcoinCurr = require('../../wallet/src/currency.js')
 async function newElectrum(config = {}) {
   config.host = 'localhost' || config.host
   config.port = '8001' || config.port
-  const e = new Electrum(config)
-  await e.connect()
+  let e 
+  try {
+    e = new Electrum(config) 
+    await e.connect()
+  } catch(e) {
+    console.log('Error connecting to electrum', e)
+  }
   return e 
 }
 
