@@ -33,7 +33,7 @@ test('electrum methods', async function(t) {
   })
 })
 
-solo('reconnect logic', async function(t) {
+test('reconnect logic', async function(t) {
   let e = await newElectrum({
     store: new WalletStoreMemory()
   })

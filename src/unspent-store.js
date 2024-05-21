@@ -64,7 +64,6 @@ class UnspentStore {
 
   }
 
-
   _smallToLarge(amount) {
     let total = new Bitcoin(0, amount.type)
     let utxo = []

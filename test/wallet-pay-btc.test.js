@@ -296,7 +296,29 @@ test('bip84 test vectors', async function(t) {
   
   t.ok(changeAddr2.path === "m/84'/0'/0'/1/1", 'second change path')
   t.ok(changeAddr2.address === 'bc1qggnasd834t54yulsep6fta8lpjekv4zj6gv5rf', 'second change address')
+
+  const bp = new BitcoinPay({
+    asset_name: 'btc',
+    provider: await newElectrum(),
+    key_manager: new KeyManager({
+      seed: await BIP39Seed.generate()
+    }),
+    store: new WalletStoreMemory(),
+    network: 'bitcoin'
+  })
+  await bp.initialize({})
+  const bpAddr = await bp.getNewAddress()
+  for(key in addr1) {
+    const bVal = bpAddr[key]
+    const aVal = addr1[key]
+    if(key === 'path') {
+      t.ok(bVal === aVal, `generate same ${key} with different mnemonic`)
+      continue
+    }
+    t.ok(bVal !== aVal, `generate different ${key} with different mnemonic`)
+  }
   await btcPay.destroy()
+  await bp.destroy()
 })
 
 

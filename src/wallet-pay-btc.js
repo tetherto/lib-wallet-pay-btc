@@ -81,6 +81,7 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   async destroy() {
+    await this.pauseSync()
     await this.provider.close()
   }
 
@@ -168,7 +169,7 @@ class WalletPayBitcoin extends WalletPay {
 
   async pauseSync() {
     return new Promise((resolve) => {
-      if(!this._syncManager) throw new WalletPayError('Not syncing')
+      if(!this._syncManager._isSyncing) return resolve()
       this.once('sync-end', () => resolve())
       this._syncManager.stopSync()
     })
