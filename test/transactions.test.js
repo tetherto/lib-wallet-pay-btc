@@ -16,7 +16,7 @@ test.test('sendTransaction', async function(t) {
   //TODO: tests for mempool transactions 
 
 
-  t.test('create, mine transaction', async function(t) {
+  t.test('create transaction, mine and compare result with electrum', async function(t) {
     const regtest = await regtestNode()
     const btcPay = await activeWallet()
 
@@ -41,8 +41,6 @@ test.test('sendTransaction', async function(t) {
 
       
       const mTex = await btcPay.provider._getTransaction(res.txid)
-      console.log(mTex)
-      return
       await regtest.mine(1)
 
       const eTx = await btcPay.provider._getTransaction(res.txid)

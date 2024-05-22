@@ -6,6 +6,7 @@ class Electrum extends EventEmitter {
   constructor(config) {
     super()
     if(!config.host || !config.port) throw new Error('Network is required')
+    this._subscribe()
     this.port = config.port
     this.host = config.host
     this._net = config.net || require('net')
@@ -17,6 +18,17 @@ class Electrum extends EventEmitter {
     this._reconnect_count = 0
     this._max_attempt = 10
     this._reconnect_interval = 2000
+  }
+
+  _subscribe() {
+    this.on('blockchain.headers.subscribe', (height) => {
+      this.block_height = height.height
+      this.emit('new-block', height)
+    })
+    
+    this.on('blockchain.scripthash.subscribe', (data) => {
+      this.emit('new-tx', data)
+    })
   }
 
   /**
@@ -70,6 +82,28 @@ class Electrum extends EventEmitter {
       resolve()
     }, this._reconnect_interval)
   }
+  
+  _rpcPayload (method, params, id) {
+    return JSON.stringify({
+		  jsonrpc: '2.0',
+      id,
+      method,
+      params
+    })
+  }
+
+  _makeRequest (method, params) {
+    return new Promise( async (resolve, reject) => {
+      if(this.clientState !== 1) {
+        return reject(new Error('client not connected'))
+      }
+      let id = Date.now() +"-"+parseInt(Math.random() * 100000000) 
+      const data = this._rpcPayload(method, params, id)
+      this.requests.set(id, [resolve, reject, method])
+      this._client.write(data+"\n")
+    })
+  }
+
 
   _handleResponse(data) {
     let resp
@@ -79,34 +113,20 @@ class Electrum extends EventEmitter {
       this.emit('request-error', err)
       return 
     }
-    
+
     if(resp?.method?.includes('.subscribe')) {
       this.emit(resp.method, resp.params.pop())
+      this.requests.delete(resp?.id)
       return
     }
+
     const _resp = this.requests.get(resp.id)
     const [resolve, reject, method] =_resp || []
-    if(!resolve) return this.emit('error', `no handler for id: ${resp.method} - ${resp.id}`)
+
+    if(!resolve) return this.emit('request-error', `no handler for response id: ${resp.id} - ${JSON.stringify(resp)}`)
 
     resolve(resp.result || resp.error) 
-
-    !method.includes('.subscribe') ? this.requests.delete(resp.id) : null
-  }
-
-
-  _getNewId () {
-    const id = Date.now() +"_"+this.requests.size+"_"+parseInt(Math.random() * 1000) 
-    this.requests.set(id, [])
-    return id
-  }
-
- _rpcPayload (method, params, id) {
-    return JSON.stringify({
-		  jsonrpc: '2.0',
-      id,
-      method,
-      params
-    })
+    this.requests.delete(resp.id)
   }
 
   async getAddressHistory(scriptHash) {
@@ -197,10 +217,6 @@ class Electrum extends EventEmitter {
   }
 
   async subscribeToBlocks() {
-    this.on('blockchain.headers.subscribe', (height) => {
-      this.block_height = height.height
-      this.emit('new-block', height)
-    })
     const height = await this._makeRequest('blockchain.headers.subscribe', [])
     this.block_height = height.height
     this.emit('new-block', height)
@@ -218,23 +234,15 @@ class Electrum extends EventEmitter {
   rpc(method, params) {
     return this._makeRequest(method, params)
   }
-
-  _makeRequest (method, params) {
-    return new Promise( async (resolve, reject) => {
-      if(this.clientState !== 1) {
-        return reject(new Error('client not connected'))
-      }
-      const id = this._getNewId()
-      const data = this._rpcPayload(method, params, id)
-      this._client.write(data+"\n")
-      this.requests.set(id, [resolve, reject, method])
-    })
-  }
-
+ 
   async ping (opts) {
     const res = await this._makeRequest('server.ping', [])
     if(!res) return 'pong'
     throw new Error('ping failed')
+  }
+
+  async subscribeToAddress(scriptHash) {
+    return this._makeRequest('blockchain.scripthash.subscribe', [scriptHash])
   }
 }
 

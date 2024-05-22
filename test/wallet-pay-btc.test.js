@@ -29,7 +29,7 @@ test('Create an instances of WalletPayBitcoin', async function(t) {
 
 })
 
-test('getNewAddress', async function(t) {
+test('getNewAddress no duplicate addresses, after recreation', async function(t) {
 
   const store = new WalletStoreMemory()
   const seed =  await BIP39Seed.generate()
@@ -70,13 +70,13 @@ test('getNewAddress', async function(t) {
 
   let addr3 = await btcPay2.getNewAddress()
   addr3 = BitcoinPay.parsePath(addr3.path)
-  t.ok(lastIndex + 1 === addr3.index, 'index increased by 1, after recreating instances')
+  t.ok(lastIndex + 1 === addr3.index, 'hd path index increased by 1, after recreating instances')
 
   await btcPay.destroy()
   await btcPay2.destroy()
 })
 
-test('getNewAddress', async (t) => {
+test('getNewAddress - address reuse logic', async (t) => {
 
   // Generate an new wallet and send some bitcoin to the address
   // generate wallet with same seed, resync and make sure that the address is not reused
@@ -145,6 +145,37 @@ test('getNewAddress', async (t) => {
   await btcPay2.destroy()
 })
 
+solo('watch addresses', function(t) {
+
+  solo('create address, send btc and check balance', async function(t) {
+    return new Promise(async (resolve, reject) => { 
+      const regtest = await regtestNode()
+      const btcPay = await activeWallet({ newWallet: true  })
+      const max = btcPay._syncManager._max_script_watch
+
+      async function newTx(amount, addr, i) {
+        const balance = await btcPay.getBalance({}, addr.address)
+        const bal = balance.pending.add(balance.confirmed).toMainUnit()
+        t.ok(bal === amount.toString(), `address balance matches sent amount ${addr.address} - ${amount} - ${bal}`)
+        if(i === max-1) {
+          t.ok(btcPay._syncManager._addr.size === btcPay._syncManager._max_script_watch, 'address being tracked is correct')
+          await btcPay.destroy()
+          resolve()
+        }
+      }
+
+      for(let i = 0; i < max; i++) {
+        const addr = await btcPay.getNewAddress()
+        const amount = +(Math.random() * 0.01).toFixed(5)
+        const a = await regtest.sendToAddress({ address : addr.address, amount })
+        console.log('sending: ', amount, ' to address: ', addr.address)
+        btcPay.once('new-tx', newTx.bind(this, amount, addr, i))
+        const mine = await regtest.mine(1)
+      }
+    })
+  })
+
+})
 
 test('syncTransactions ', async function(t) {
   const btcPay = await activeWallet()

@@ -42,6 +42,14 @@ class StateDb {
   async setSyncState(state) {
     return this.store.put('sync_state', state)
   }
+
+  async addWatchedScriptHashes(list) {
+    return this.store.put('watched_script_hashes', list)
+  }
+
+  async getWatchedScriptHashes() {
+    return this.store.get('watched_script_hashes') || []
+  }
 }
 
 
@@ -91,6 +99,7 @@ class WalletPayBitcoin extends WalletPay {
     super.initialize(wallet)
 
     await this.state.init()
+    await this._syncManager.init()
     await this._hdWallet.init()
     await this._utxoManager.init()
     const electrum = new Promise((resolve, reject) => {
@@ -106,8 +115,11 @@ class WalletPayBitcoin extends WalletPay {
     })
     await this.provider.subscribeToBlocks()
 
-    this._syncManager.on('synced-path', (...args)=>{
+    this._syncManager.on('synced-path', (...args) => {
       this.emit('synced-path', ...args)
+    })
+    this._syncManager.on('new-tx', (...args) => {
+      this.emit('new-tx', ...args)
     })
     return Promise.resolve(electrum)
   }
@@ -120,10 +132,11 @@ class WalletPayBitcoin extends WalletPay {
   async getNewAddress(config = {}) { 
     let path =  this._hdWallet.getLastExtPath() 
     const addrType = HdWallet.getAddressType(path)
-    const addr = this.keyManager.addrFromPath(path, addrType)
+    const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
     this.emit('new-address', addr)
     path = HdWallet.bumpIndex(path)
     this._hdWallet.updateLastPath(path)
+    this._syncManager.watchAddress([hash, addr])
     return addr
   }
 

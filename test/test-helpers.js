@@ -34,12 +34,20 @@ async function regtestNode(opts = {}) {
 
 const _store = new WalletStoreMemory()
 async function activeWallet(config = {}) {
-  const mnemonic = "sell clock better horn digital prevent image toward sort first voyage detail inner regular improve"
+
+  let seed 
+
+  if(config.newWallet) {
+    seed = await BIP39Seed.generate()
+  } else {
+    seed = await BIP39Seed.generate("sell clock better horn digital prevent image toward sort first voyage detail inner regular improve")
+  }
+  
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum(),
     key_manager: new KeyManager({
-      seed: await BIP39Seed.generate(mnemonic)
+      seed
     }),
     store: config.store || _store,
     network: 'regtest'
