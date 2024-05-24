@@ -125,7 +125,8 @@ class Electrum extends EventEmitter {
 
     if(!resolve) return this.emit('request-error', `no handler for response id: ${resp.id} - ${JSON.stringify(resp)}`)
 
-    resolve(resp.result || resp.error) 
+    const isNull = resp.result === null 
+    resolve(isNull ? null : (resp.result || resp.error))
     this.requests.delete(resp.id)
   }
 

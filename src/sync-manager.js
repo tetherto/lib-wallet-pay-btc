@@ -4,48 +4,58 @@ const HdWallet = require('./hdwallet.js')
 const { Bitcoin } = require('../../wallet/src/currency.js')
 const UnspentStore = require('./unspent-store.js')
 
-class UTXOManager {
-
-  constructor(config) {
-    this.store = config.store
-  }
-  
-  async init() {
-    await this.store.init()
-  }
-
-  utxoForAmount(amount, config) {
-    // Filter spent utxo 
-    const utxos = this.store.keys('tx_')
-    const selected = utxos.filter((utxo) => {
-      if(utxos.height == 0 ) return false 
-      return true
-    })
-    return selected
-  }
-
-  storeTxs(txs) {
-    return Promise.all(txs.map(async (tx) => {
-      return this.store.put(`tx_${tx.txid}`, tx)
-    }))
-  }
-  
-  async getTx(txid) {
-    return this.store.get(`tx_${txid}`)
-  }
-
-  queryTx(query) {
-    const txs = this.store.keys('tx_')
-    return txs 
-  }
-}
-
 class Balance {
 
   constructor(confirmed, pending, mempool) {
     this.confirmed = new Bitcoin(confirmed, 'main')
     this.pending = new Bitcoin(pending,'main')
     this.mempool = new Bitcoin(mempool, 'main')
+  }
+}
+
+class AddressManager {
+
+  constructor(config) {
+    this.store = config.store
+  }
+
+  async init() {
+    await this.store.init()
+  }
+
+  _newAddr() {
+    return {
+      // @desc total balances for VIN and VOUTS
+      in : new Balance(0, 0, 0), 
+      out : new Balance(0 ,0, 0),
+      // @desc: transaction fee totals
+      fee: new Balance(0,0,0),
+      // @desc: txid of processsed vins and vouts
+      intxid : [],
+      outtxid : [],
+    } 
+  }
+
+  async has(addr) {
+    return !! this.get(addr)
+  }
+
+  async clear() {
+    this.store.clear()
+  }
+
+  async newAddress(addr) {
+    const data = this._newAddr()
+    await this.store.put(addr, data)
+    return data
+  }
+
+  set(addr, data) {
+    return this.store.put(addr, data)
+  }
+
+  get(addr) {
+    return this.store.get(addr)
   }
 }
 
@@ -62,8 +72,13 @@ class SyncManager extends EventEmitter {
     this.keyManager = config.keyManager
     this.currentBlock = config.currentBlock
     this.minBlockConfirm = config.minBlockConfirm
+
+    // @desc: halt syncing
     this._halt = false
+    // @desc: syncing flag
     this._isSyncing = false
+
+    // @desc: max number of script hashes to watch
     this._max_script_watch = config.max_script_watch || 10
     this.reset()
   }
@@ -71,48 +86,67 @@ class SyncManager extends EventEmitter {
   init() {
     return new Promise(async (resolve, reject) => {
       await this._subscribeToScriptHashes()
+      this._total = await this.state.getTotalBalance()
+      this._addr = new AddressManager({ store: this.state.store.newInstance({ name : 'addr'}) })
+      await this._addr.init()
+      this._unspent = new UnspentStore({ store: this.state.store.newInstance({ name : 'unspent'}) })
+      await this._unspent.init()
       resolve()
     })
   }
+  
+  reset() {
+    const total = {
+      in : new Balance(0,0,0), 
+      out: new Balance(0,0,0),
+      fee: new Balance(0,0,0)
+    }
+    this._total = this.state.setTotalBalance(total) 
+    this.resumeSync()
+    this.state.resetSyncState()
+  }
 
   async _subscribeToScriptHashes() {
-    const scriptHashes = await this.state.getWatchedScriptHashes()
-    this.provider.on('new-tx', async (changeHash) => {
+    const { state, provider } = this
+    const scriptHashes = await state.getWatchedScriptHashes()
+    provider.on('new-tx', async (changeHash) => {
       await this._updateScriptHashBalance(changeHash)
       this.emit('new-tx')
     })
     await Promise.all(scriptHashes.map(async ([scripthash, balhash]) => {
-      return this.provider.subscribeToAddress(scripthash)
+      return provider.subscribeToAddress(scripthash)
     }))
   }
 
   async _updateScriptHashBalance(changeHash) {
     const { provider, state } = this
-    const data = await state.getWatchedScriptHashes()
+    const inlist = await state.getWatchedScriptHashes('in')
+    const extlist = await state.getWatchedScriptHashes('ext')
+    const data = inlist.concat(extlist)
 
     await Promise.all(data.map(async ([scripthash, addr, path, balHash]) => {
       if(changeHash === balHash) return 
       const txHistory = await provider.getAddressHistory(scripthash)
       await this._processHistory(addr, txHistory)
     }))
-
   }
 
-  async watchAddress([scriptHash, addr]) { 
-    const hashList = await this.state.getWatchedScriptHashes()
-    if(hashList.length >= this._max_script_watch) {
+  async watchAddress([scriptHash, addr], addrType,) { 
+    const { state, _max_script_watch, provider } = this
+    const hashList = await state.getWatchedScriptHashes(addrType)
+    if(hashList.length >= _max_script_watch) {
       hashList.shift()
     }
-    const balHash = await this.provider.subscribeToAddress(scriptHash)
+    const balHash = await provider.subscribeToAddress(scriptHash)
     if(balHash?.message) {
       throw new Error('Failed to subscribe to address '+ balHash.message)
     }
     hashList.push([scriptHash, addr, addr.path, balHash])
-    await this.state.addWatchedScriptHashes(hashList)
+    await state.addWatchedScriptHashes(hashList, addrType)
   }
 
-  unlockUtxo(state) {
-    this._unspent.unlock(state)
+  async unlockUtxo(state) {
+    return this._unspent.unlock(state)
   }
 
   updateBlock(block) {
@@ -122,21 +156,14 @@ class SyncManager extends EventEmitter {
 
   async _processHistory(addr, txHistory) {
     const { _addr } = this
-    if(!_addr.has(addr.address)) {
-      _addr.set(addr.address,{
-        in : new Balance(0, 0, 0), 
-        out : new Balance(0 ,0, 0),
-        fee: new Balance(0,0,0),
-        intxid : new Set(),
-        outtxid : new Set(),
-      })
+    if(!await _addr.has(addr.address)) {
+      await _addr.newAddress(addr.address)
     }
 
-
-    await Promise.all(txHistory.map((tx) => {
+    await Promise.all(txHistory.map(async (tx) => {
       const txState = this._getTxState(tx)
-      this._processUtxo(tx.out, 'out', txState, tx.fee, addr ,tx.txid)
-      this._processUtxo(tx.in, 'in', txState, 0, addr, tx.txid)
+      await this._processUtxo(tx.out, 'out', txState, tx.fee, addr ,tx.txid)
+      await this._processUtxo(tx.in, 'in', txState, 0, addr, tx.txid)
     }))
   }
 
@@ -162,23 +189,10 @@ class SyncManager extends EventEmitter {
     return [true, hasBalance, gapEnd, gapCount]
   }
 
-  reset() {
-    this._total = {
-      in : new Balance(0,0,0), 
-      out: new Balance(0,0,0),
-      fee: new Balance(0,0,0)
-    }
-    this._addr = new Map()
-    this._unspent = new UnspentStore()
-    this.resumeSync()
-    this.state.resetSyncState()
-  }
-
   async syncAccount(pathType, opts) {
     if(this._halt || this._isSyncing) throw new Error("already syncing")
-    this._isSyncing = true
-
     const { gapLimit, hdWallet, state } = this
+    this._isSyncing = true
 
     let syncState = await state.getSyncState(opts)
     const syncType = syncState[pathType]
@@ -193,7 +207,7 @@ class SyncManager extends EventEmitter {
       gapEnd = res[2]
       gapCount = res[3]
       if(!done) return halt()
-      // Update path tracking to not reuse addresses
+      // Update path tracking state to not reuse addresses
       if(hasBalance) {
         hdWallet.updateLastPath(HdWallet.bumpIndex(path))
       }
@@ -202,14 +216,14 @@ class SyncManager extends EventEmitter {
       syncState[pathType].gap = gapCount
       syncState[pathType].gapEnd = gapEnd
       await state.setSyncState(syncState)
-      this.emit('synced-path', pathType, path, hasBalance, [gapCount, this.gapLimit, gapEnd])
+      this.emit('synced-path', pathType, path, hasBalance, [gapCount, gapLimit, gapEnd])
     })
 
     if(this._halt) {
       this._isSyncing = false
       return 
     } 
-    this._unspent.process()
+    await this._unspent.process()
     this._isSyncing = false
   }
 
@@ -235,30 +249,32 @@ class SyncManager extends EventEmitter {
     return 'pending'
   }
 
-  _processUtxo(utxoList, inout, txState, txFee = 0, addr, txid) {
+  async _processUtxo(utxoList, inout, txState, txFee = 0, addr, txid) {
     const { _addr, _total }  = this
 
-    utxoList.forEach((utxo) => {
+    return Promise.all(utxoList.map(async (utxo) => {
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
       const bal = _addr.get(utxo.address)
       if(utxo.address !== addr.address || !bal) return 
+      const point = inout === 'out' ? utxo.txid +':'+ utxo.index : utxo.prev_txid +':'+ utxo.prev_index
 
       // Prevent duplicate txid from being added
-      if((inout === 'in' && bal.intxid.has(txid)) || (inout === 'out' && bal.outtxid.has(txid))) return 
+      if((inout === 'in' && bal.intxid.includes(point)) || (inout === 'out' && bal.outtxid.includes(point))) return
 
       bal[inout][txState] = bal[inout][txState].add(utxo.value)
       _total[inout][txState] = _total[inout][txState].add(utxo.value)
 
       if(inout === 'out') {
         bal.fee[txState] = bal.fee[txState].add(txFee)
-        bal.outtxid.add(txid)
+        bal.outtxid.push(point)
       } else {
-        bal.intxid.add(utxo.prev_txid)
+        bal.intxid.push(point)
       }
       _addr.set(utxo.address, bal)
-      this._unspent.add(utxo, inout)
-    })
+      await this._unspent.add(utxo, inout)
+      await this.state.setTotalBalance(_total)
+    }))
   }
 
   stopSync() {
@@ -271,13 +287,14 @@ class SyncManager extends EventEmitter {
 
   isStopped() { return this._halt }
 
-  utxoForAmount(value, strategy) {
+  async utxoForAmount(value, strategy) {
     const amount = new Bitcoin(value.amount, value.unit)
     return this._unspent.getUtxoForAmount(amount, strategy)
   }
+
+  getTransactions(opts) {
+    return this._syncManager.getTransactions(opts)
+  }
 }
 
-module.exports = {
-  UTXOManager,
-  SyncManager
-}
+module.exports = SyncManager

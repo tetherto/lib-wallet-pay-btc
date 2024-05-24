@@ -21,7 +21,6 @@ class Transaction extends EventEmitter {
     if(txid?.message) {
       this._syncManager.unlockUtxo(false)
       throw new Error('Broadcast failed: '+txid.message.split("\n").shift())
-      return tx
     }
     this._syncManager.unlockUtxo(true)
     return tx
@@ -31,7 +30,7 @@ class Transaction extends EventEmitter {
     return this.provider.broadcastTransaction(tx.hex)
   }
 
-  _generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, weight=1) {
+  async _generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, weight=1) {
     const { keyManager, network } = this
     const { utxo, total } = utxoSet 
     const psbt = new bitcoin.Psbt({ network: bitcoin.networks[network] })
@@ -59,7 +58,11 @@ class Transaction extends EventEmitter {
     const totalFee = Bitcoin.BN(fee).times(weight)
     const change = Bitcoin.BN(total.toBaseUnit()).minus(sendAmount.toBaseUnit()).minus(totalFee).toNumber()
 
-    if(change < 0) throw new Error('Invalid change calcualted: '+change)
+
+    if(change < 0) {
+      await this._syncManager.unlockUtxo(false)
+      throw new Error('Negative change value calculated: '+change)
+    }
 
     psbt.addOutput({
       address,
@@ -76,6 +79,7 @@ class Transaction extends EventEmitter {
     psbt.finalizeAllInputs();
     const tx = psbt.extractTransaction()
     return {
+      sendAddress: address,
       feeRate: psbt.getFeeRate(),
       totalFee: totalFee.toNumber(),
       vSize: tx.virtualSize(),
@@ -92,12 +96,17 @@ class Transaction extends EventEmitter {
 
     const changeAddr = await this._getInternalAddress()
     const sendAmount = new Bitcoin(amount, unit)
-    const utxoSet =  this._syncManager.utxoForAmount({ amount, unit })
+    const utxoSet =  await this._syncManager.utxoForAmount({ amount, unit })
+
+    if(utxoSet.utxo.length === 0) {
+      throw new Error('Insufficient funds')
+    }
+
 
     // Generate a fake transaction to determine weight of the transaction
     // then we create a new tx with correct fee
-    const fakeTx = this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr)
-    const realTx = this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, fakeTx.vSize)
+    const fakeTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr)
+    const realTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, fakeTx.vSize)
     realTx.changeAddress = changeAddr
     return realTx
 

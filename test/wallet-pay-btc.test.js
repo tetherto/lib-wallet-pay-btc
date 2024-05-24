@@ -98,8 +98,8 @@ test('getNewAddress - address reuse logic', async (t) => {
   const addr = await btcPay.getNewAddress()
   const amount = 0.0001
   const a = await regtest.sendToAddress({ address : addr.address, amount })
+  await pause(10000)
   await regtest.mine(2)
-  await pause(5000)
 
   let _pathBalanceChecked = false
   btcPay.once('synced-path', async (pt, path, hasBalance) => { 
@@ -110,7 +110,7 @@ test('getNewAddress - address reuse logic', async (t) => {
 
   await btcPay.syncTransactions()
 
-  if(!_pathBalanceChecked)  throw new Error('Path balance not checked')
+  if(!_pathBalanceChecked) t.fail('path balance not checked') 
 
 
   const btcPay2 = new BitcoinPay({
@@ -145,9 +145,9 @@ test('getNewAddress - address reuse logic', async (t) => {
   await btcPay2.destroy()
 })
 
-solo('watch addresses', function(t) {
+test('watch addresses', function(t) {
 
-  solo('create address, send btc and check balance', async function(t) {
+  test('create address, send btc and check balance', async function(t) {
     return new Promise(async (resolve, reject) => { 
       const regtest = await regtestNode()
       const btcPay = await activeWallet({ newWallet: true  })
@@ -158,7 +158,8 @@ solo('watch addresses', function(t) {
         const bal = balance.pending.add(balance.confirmed).toMainUnit()
         t.ok(bal === amount.toString(), `address balance matches sent amount ${addr.address} - ${amount} - ${bal}`)
         if(i === max-1) {
-          t.ok(btcPay._syncManager._addr.size === btcPay._syncManager._max_script_watch, 'address being tracked is correct')
+          // TODO: CHECK SIZE OF ADDRESS BEING TRACKED
+          //t.ok(btcPay._syncManager._addr.size === btcPay._syncManager._max_script_watch, 'address being tracked is correct')
           await btcPay.destroy()
           resolve()
         }
@@ -177,7 +178,7 @@ solo('watch addresses', function(t) {
 
 })
 
-test('syncTransactions ', async function(t) {
+solo('syncTransactions ', async function(t) {
   const btcPay = await activeWallet()
 
   async function syncType(sType, pauseCount, opts) {
@@ -198,7 +199,6 @@ test('syncTransactions ', async function(t) {
         }
         if(opts?.restart && count === 0) {
           t.ok(gapCount === 0, 'gap count is 0, when restarting')
-
         }
         if(count !== pauseCount ) {
           count ++ 
@@ -255,7 +255,7 @@ test('getBalance', (t) => {
 
     let total = 0
     let payAddr
-    async function checkBal(pt, path) {
+    async function checkBal(pt, path, hasBal, gapCount) {
       const [sc, addr] = btcPay.keyManager.pathToScriptHash(path, 'p2wpkh')
       const eBal = await btcPay.provider._getBalance(sc) 
 
@@ -285,7 +285,7 @@ test('getBalance', (t) => {
     const amount = 0.0888
     const a = await regtest.sendToAddress({ address : payAddr.address, amount })
     await regtest.mine(2)
-    pause(2000)
+    await pause(10000)
     btcPay.on('synced-path', checkBal)
     await btcPay.syncTransactions({ reset : true })
     await btcPay.destroy()

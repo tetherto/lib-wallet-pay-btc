@@ -2,9 +2,17 @@ const { EventEmitter } = require('events')
 const WalletPay = require('../../wallet-pay/src/wallet-pay.js')
 const Transaction = require('./transaction.js')
 const HdWallet = require('./hdwallet.js')
-const { SyncManager, UTXOManager } = require('./sync-manager.js')
+const SyncManager = require('./sync-manager.js')
 
 const WalletPayError = Error
+
+class SyncState {
+  constructor(config = {}) {
+    this.gap = config.gap || 0 
+    this.gapEnd = config.gapEnd || null
+    this.path = config.path || null
+  }
+}
 
 class StateDb {
   constructor(config) {
@@ -22,19 +30,20 @@ class StateDb {
   async getSyncState(opts) {
     const state = await this.store.get('sync_state')
     if(!state || opts?.restart) {
-      return {
-        internal: { path : null, gap: 0, gapEnd: null },
-        external: { path : null, gap: 0 , gapEnd: null}
-      }
+      return this._newSyncState()
     }
     return state
   }
 
-  resetSyncState() {
-    const state = {
-      internal: { path : null, gap: 0, gapEnd: null },
-      external: { path : null, gap: 0 , gapEnd: null}
+  _newSyncState() {
+    return {
+      internal: new SyncState(),
+      external:  new SyncState(),
     }
+  }
+
+  resetSyncState() {
+    const state = this._newSyncState()
     this.store.put('sync_state', state)
     return state
   }
@@ -43,13 +52,22 @@ class StateDb {
     return this.store.put('sync_state', state)
   }
 
-  async addWatchedScriptHashes(list) {
-    return this.store.put('watched_script_hashes', list)
+  async addWatchedScriptHashes(list, addrType) {
+    return this.store.put('watched_script_hashes_'+addrType, list)
   }
 
-  async getWatchedScriptHashes() {
-    return this.store.get('watched_script_hashes') || []
+  async getWatchedScriptHashes(addrType) {
+    return this.store.get('watched_script_hashes_'+addrType) || []
   }
+
+  async setTotalBalance(balance) {
+    return this.store.put('total_balance', balance)
+  }
+
+  async getTotalBalance() {
+    return this.store.get('total_balance')
+    }
+
 }
 
 
@@ -74,7 +92,6 @@ class WalletPayBitcoin extends WalletPay {
     this.gapLimit = config.gapLimit || 20
     this.min_block_confirm = config.min_block_confirm || 1
     this.latest_block = 0
-    this._utxoManager = new UTXOManager({ store: this.store.newInstance({ name : 'utxomanager'}) })
 
     this._syncManager = new SyncManager({
       state: this.state,
@@ -92,7 +109,7 @@ class WalletPayBitcoin extends WalletPay {
     await this.pauseSync()
     await this.provider.close()
   }
-
+  
   async initialize(wallet) {
     if(this.ready) return Promise.resolve()
 
@@ -101,7 +118,6 @@ class WalletPayBitcoin extends WalletPay {
     await this.state.init()
     await this._syncManager.init()
     await this._hdWallet.init()
-    await this._utxoManager.init()
     const electrum = new Promise((resolve, reject) => {
       // @note: Blocks may be skipped. 
       // TODO: handle reorgs
@@ -124,32 +140,30 @@ class WalletPayBitcoin extends WalletPay {
     return Promise.resolve(electrum)
   }
 
-
-  static parsePath(path) {
-    return HdWallet.parsePath(path)
-  }
-
   async getNewAddress(config = {}) { 
     let path =  this._hdWallet.getLastExtPath() 
     const addrType = HdWallet.getAddressType(path)
     const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
-    this.emit('new-address', addr)
     path = HdWallet.bumpIndex(path)
     this._hdWallet.updateLastPath(path)
-    this._syncManager.watchAddress([hash, addr])
+    await this._syncManager.watchAddress([hash, addr], 'ext')
     return addr
   }
 
   async _getInternalAddress() {
     let path =  this._hdWallet.getLastIntPath() 
     const addrType = HdWallet.getAddressType(path)
-    const addr = this.keyManager.addrFromPath(path, addrType)
-
+    const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
     path = HdWallet.bumpIndex(path)
     this._hdWallet.updateLastPath(path)
-    this.emit('new-address', this.latest_addr)
+    await this._syncManager.watchAddress([hash, addr], 'in')
     return addr
   }
+  
+  getTransactions(opts) {
+    return this._syncManager.getTransactions(opts)
+  }
+
 
   getBalance(opts, addr) {
     return this._syncManager.getBalance(addr)
@@ -162,19 +176,20 @@ class WalletPayBitcoin extends WalletPay {
   */ 
   syncTransactions(opts = {}) {
     return new Promise( async (resolve, reject) => {
-      await this._syncManager.ready()
+      const { _syncManager } = this
+
       if(opts?.reset) {
-        await this._syncManager.reset()
+        await _syncManager.reset()
       }
 
-      await this._syncManager.syncAccount('external', opts)
-      if(this._syncManager.isStopped()) {
-        this._syncManager.resumeSync()
+      await _syncManager.syncAccount('external', opts)
+      if(_syncManager.isStopped()) {
+        _syncManager.resumeSync()
         this.emit('sync-end')
         return resolve()
       }
-      await this._syncManager.syncAccount('internal', opts)
-      this._syncManager.resumeSync()
+      await _syncManager.syncAccount('internal', opts)
+      _syncManager.resumeSync()
       this.emit('sync-end')
       resolve()
     })
@@ -204,15 +219,17 @@ class WalletPayBitcoin extends WalletPay {
       throw err
     }
 
-    // TODO: Update utxo manager
-    // TODO  sync when it is confirmed 
-
     return res
   }
 
   isValidAddress(address) {
     return this._makeRequest('blockchain.address.get_balance', [address])
   }
+  
+  static parsePath(path) {
+    return HdWallet.parsePath(path)
+  }
+
 
 }
 

@@ -1,43 +1,104 @@
 
 const { Bitcoin } = require('../../wallet/src/currency.js')
 
+class VinVout {
+  constructor(config, vtype) {
+
+    this.store = config.store
+    this.vtype = config.vtype
+  }
+
+  async init() {
+    
+  }
+
+  async push(utxo) {
+    const key = this.vtype == 'vout' ? utxo.txid+':'+utxo.index : utxo.prev_txid +':' +utxo.prev_index
+    return this.store.put(key, utxo)
+  }
+
+  async filter(cb) {
+    return this.store.entries(async (k, v) => {
+      const bool = await cb(v)
+      if(!bool) {
+        await this.store.delete(k)
+      }
+    })
+  }
+
+  async entries(cb) {
+    return this.store.entries(async (k, v) => {
+      await cb(v, k)
+    })
+  }
+
+  async some(cb) {
+    return this.store.some(async (k, v) => {
+      return cb(v)
+    })
+  }
+
+  get(key) {
+    return this.store.get(key)
+  }
+
+}
+
 class UnspentStore {
 
-  constructor() {
-    this.vin = []
-    this.vout = []
-    this.ready = false
-    this.locked = new Set()
-  }
-
-  add(utxo, vinout) {
-    if(vinout === 'in') {
-      this.vin.push(utxo)
-    }
-    if(vinout === 'out') {
-      this.vout.push(utxo)
-    }
-  }
-
-  process() {
-    this.vout = this.vout.filter((utxo) => {
-      return !this.vin.some((vin) => {
-        return vin.prev_txid === utxo.txid && vin.prev_index === utxo.index
-      })
+  constructor(config) {
+    this.vin = new VinVout({
+      store: config.store.newInstance({ name : 'vin'}),
+      vtype: 'vin'
     })
-    this._sort()
+    this.vout = new VinVout({
+      store: config.store.newInstance({ name : 'vout'}),
+      vtype: 'vout'
+    })
+    this.ready = false
+    this.store = config.store 
+  }
+
+  async init() {
+    await this.vin.init()
+    await this.vout.init()
+    this.locked = await this.store.get('utxo_lock') || []
+    this._lockedUtxo = []
+  }
+
+  async clear() {
+    await this.vin.clear()
+    await this.vout.clear()
+    await this._resetLock()
+  }
+
+  async add(utxo, vinout) {
+    if(vinout === 'in') {
+      await this.vin.push(utxo)
+    } else if(vinout === 'out') {
+      await this.vout.push(utxo)
+    } else {
+      throw new Error('invalid param '+vinout)
+    }
+    return
+  }
+
+  async process() {
+    await this.vout.filter(async (utxo) => {
+      const dd = ! (await this.vin.some((vin) => {
+        const zz = vin.prev_txid === utxo.txid && vin.prev_index === utxo.index
+        return zz
+      }))
+      return dd
+    })
     this.ready = true
   }
 
-  _sort() {
-    this.vout = this.vout.sort((a, b) => a.value.minus(b.value).toString())
-  }
 
-  lock(id) {
-    const exists = this.vout.some((utxo) => utxo.txid === id )
-    if(this.locked.has(id)) return false
-    if(!exists) return false 
-    this.locked.add(id)
+  async lock(id) {
+    const exists = await this.vout.some((utxo) => utxo.txid === id )
+    if(this.locked.includes(id) || !exists) return false
+    this.locked.push(id)
     return true
   }
 
@@ -48,36 +109,51 @@ class UnspentStore {
     return this._smallToLarge(amount)
   }
 
-  unlock(state) {
+  /**
+  * @description unlock locked outputs for spending.
+  * @param {boolean} state if true, remove locked outputs from vout set. if FALSE, reset lock
+  */
+  async unlock(state) {
     if(!state) {
-      this.locked.clear()
+    this.locked = []
       this.ready = true
       return 
     }
 
-    this.locked.forEach((id) => {
-      this.vout = this.vout.filter((utxo) => utxo.txid !== id)
-    })
-    this.locked.clear()
-    this._sort()
+
+    await Promise.all(this.locked.map(async (id) => {
+      return this.vout.filter((utxo) => utxo.txid !== id)
+    }))
+
+    this.locked = []
     this.ready = true
 
   }
 
-  _smallToLarge(amount) {
+  async _smallToLarge(amount) {
     let total = new Bitcoin(0, amount.type)
     let utxo = []
-    for(let index in this.vout) {
-      const v = this.vout[index]
-      if(this.locked.has(v.txid)) continue
+    let done = false 
+    await this.vout.entries(async (v) => {
+      if(this.locked.includes(v.txid) || done ) return
       total = total.add(v.value)
       utxo.push(v)
-      this.locked.add(v.txid)
+      await this.lock(v.txid)
       if(total.gte(amount)) {
-        break
+        // TODO: SOME loop 
+        done = true 
+        return
       }
-    }
+    })
     const diff = total.minus(amount)
+
+    if(utxo.length === 0) {
+      throw new Error('Insufficient funds or no utxo')
+    }
+
+    if(diff.toNumber() < 0) {
+      throw new Error('Have utxo but insufficient funds')
+    }
     return {utxo, total, diff}
   }
 

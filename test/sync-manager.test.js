@@ -11,7 +11,7 @@ const {
 
 test.test('Sync Manager', async function(t) {
 
-  t.test('create, mine transaction', async function(t) {
+  t.test('get new address', async function(t) {
     const regtest = await regtestNode({ mine : false })
     const btcPay = await activeWallet()
 

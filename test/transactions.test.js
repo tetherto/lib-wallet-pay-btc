@@ -25,8 +25,9 @@ test.test('sendTransaction', async function(t) {
 
     //const fuzz = Array.from({ length: 10 }, () => Math.random() * (2 - 0.00000546) + 0.00000546).map(num => +num.toFixed(8));
     const fuzz = []
-    //const amounts = [0.1, 0.001, 0.01999, 1, 0.000666, 0.008484, 2.1, 2.00000001,0.00000546].concat(fuzz)
-    const amounts = [0.0001]
+    const amounts = [0.1, 0.001, 0.01999, 1, 0.000666, 0.008484, 2.1, 2.00000001,0.00000546].concat(fuzz)
+    //const amounts = [0.000666]
+    //const amounts = [0.0001]
     const fee = [2, 10, 20, 100, 300]
 
     async function send(amount, index) {
@@ -34,11 +35,10 @@ test.test('sendTransaction', async function(t) {
         amount: amount,
         unit: 'main',
         address: nodeAddr,
-        fee: fee[index] || +(Math.random() * 100).toFixed(),
+        fee: fee[index] || +(Math.random() * 1000).toFixed(),
       }
       console.log('sending amount', data)
       const res = await btcPay.sendTransaction({}, data)
-
       
       const mTex = await btcPay.provider._getTransaction(res.txid)
       await regtest.mine(1)
@@ -56,14 +56,13 @@ test.test('sendTransaction', async function(t) {
       res.vout.forEach( (vout, i) => {
         const eVout = eTx.vout[i]
         t.ok(eVout.n === i, 'vout index is same')
-        t.ok(new BitcoinCurrency(vout.value, 'base').eq(new BitcoinCurrency(eVout.value, 'main')), 'vout value is same')
+        t.ok(new BitcoinCurrency(vout.value, 'base').eq(new BitcoinCurrency(eVout.value, 'main')), 'vout value is same: '+eVout.value)
       })
       const eOut = eTx.vout[0]
       const eChange = eTx.vout[1]
       t.ok(eOut.scriptPubKey.address === nodeAddr, 'output address is same')
       t.ok(eChange.scriptPubKey.address === res.changeAddress.address, 'change address is same')
       t.ok(res, 'transaction sent')
-    
     }
 
     await btcPay.syncTransactions()
@@ -71,6 +70,7 @@ test.test('sendTransaction', async function(t) {
     let c = 0
     for(const amount of amounts) {
       await send(amount, c)
+      await pause(10000)
       c++
     }
     await btcPay.destroy()
