@@ -37,7 +37,7 @@ const btcPay = new BitcoinPay({
   network: 'regtest',
   // Min confs: Minimum number of confirmations to consider a transaction confirmed
   min_block_confirmations: 1,
-  // Gap limit: Number of addresses to generate ahead of current address.
+  // Gap limit: Number of addresses to look ahead for transactions.
   gap_limit: 20,
 })
 // Start wallet.
