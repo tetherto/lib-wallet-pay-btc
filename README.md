@@ -6,7 +6,7 @@ Bitcoin payment method for the wallet library. Powered by Electrum.
 ### Example
 
 ```javascript
-// Start with a store engine
+// Start with a storage engine
 // 
 const storeEngine = new WalletStoreMemory()
 await storeEngine.init()
@@ -14,7 +14,10 @@ await storeEngine.init()
 // Generate a seed or use a mnemonic phrase
 const seed = await BIP39Seed.generate(/** Can enter mnemonic phrase here to **/)
 
-// Connect to an electrum server
+// Connect to an electrum server.
+// This class needs a storage engine for cacheing.
+// host and port are the electrum server details.
+// Additional options can be passed to the Electrum class with regards to caching.
 const provider = await Electrum({ store: storeEngine, host, port })
 await provider.connect()
 
@@ -22,18 +25,22 @@ await provider.connect()
 const btcPay = new BitcoinPay({
   // Asset name is a unique key for the asset, allow multiple assets of same type per wallet
   asset_name: 'btc',
-  // Electrum provider. Store engine is required for for caching.
+  // Electrum provider.
   provider,
-  // Key manager: Handlles address generation from seed
+  // Key manager: Handlles address generation library from seed.
   key_manager: new KeyManager({
     seed
   }),
   // Wallet store: Storage engine for the wallet
   store: storeEngine
   // Network: network type, regtest, testnet, mainnet
-  network: 'regtest'
+  network: 'regtest',
+  // Min confs: Minimum number of confirmations to consider a transaction confirmed
+  min_block_confirmations: 1,
+  // Gap limit: Number of addresses to generate ahead of current address.
+  gap_limit: 20,
 })
-
+// Start wallet.
 await btcPay.initialize({})
 
 // Listen to each path that has transactions.
@@ -43,7 +50,14 @@ btcPay.on('sync-path', (pathType, path, hasTx, progress) => {
 })
 
 // Parse blockchain for transactions to your wallet.
-await btcPay.syncTransactions()
+// You need to do this when you need to reset wallet generation 
+await btcPay.syncTransactions({ reset : false // Passing true will resync from scratch })
+
+
+// Pause the sync process. 
+// If the application needs to sleep and come back to resume syncing.
+await btcPay.pauseSync()
+
 
 // Get a new address. This will add the address to watch list for incoming payments. You should limit address generation to prevent spam.
 // This will return address, HD PATH, pubkey and WIF private key of the address. 
@@ -84,6 +98,9 @@ const tx = await btcPay.getTransaction(result.txid)
 
 // Get a list of transactions
 const txs = await btcPay.getTransactions(query)
+
+// is address a valid bitcoin address
+const isvalid = await btcPay.isValidAddress('bcrt1qxeyapzy3ylv67qnxjtwx8npd8ypjkuy8xstu0m')
 
 
 ### TODO:
