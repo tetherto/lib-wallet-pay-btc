@@ -1,6 +1,6 @@
 
 const BitcoinPay = require('../src/wallet-pay-btc.js')
-const { WalletStoreMemory } = require('../../wallet-store/src/wallet-store.js')
+const { WalletStoreMemory } = require('../../wallet-store/')
 const KeyManager = require('../src/wallet-key-btc.js')
 const BIP39Seed = require('../../wallet-seed-bip39/src/wallet-seed-bip39.js')
 const Electrum = require('../src/electrum.js')
@@ -11,6 +11,7 @@ const BitcoinCurr = require('../../wallet/src/currency.js')
 async function newElectrum(config = {}) {
   config.host = 'localhost' || config.host
   config.port = '8001' || config.port
+  config.store = config.store || _store
   let e 
   try {
     e = new Electrum(config) 
@@ -42,14 +43,16 @@ async function activeWallet(config = {}) {
   } else {
     seed = await BIP39Seed.generate("sell clock better horn digital prevent image toward sort first voyage detail inner regular improve")
   }
+
+  const store = config.store || _store
   
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
-    provider: await newElectrum(),
+    provider: await newElectrum({ store }),
     key_manager: new KeyManager({
       seed
     }),
-    store: config.store || _store,
+    store,
     network: 'regtest'
   })
 

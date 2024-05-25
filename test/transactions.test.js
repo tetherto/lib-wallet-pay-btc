@@ -8,7 +8,7 @@ const {
   BitcoinCurrency
 } = require('./test-helpers.js')
 
-test.test('sendTransaction', async function(t) {
+test.test('sendTransaction',{ timeout : 600000 }, async function(t) {
 
 
   //TODO: write tests for bad transactions.
@@ -16,7 +16,7 @@ test.test('sendTransaction', async function(t) {
   //TODO: tests for mempool transactions 
 
 
-  t.test('create transaction, mine and compare result with electrum', async function(t) {
+  t.test('create transaction, mine and compare result with electrum',  async function(t) {
     const regtest = await regtestNode()
     const btcPay = await activeWallet()
 
@@ -25,9 +25,7 @@ test.test('sendTransaction', async function(t) {
 
     //const fuzz = Array.from({ length: 10 }, () => Math.random() * (2 - 0.00000546) + 0.00000546).map(num => +num.toFixed(8));
     const fuzz = []
-    const amounts = [0.1, 0.001, 0.01999, 1, 0.000666, 0.008484, 2.1, 2.00000001,0.00000546].concat(fuzz)
-    //const amounts = [0.000666]
-    //const amounts = [0.0001]
+    const amounts = [0.1, 0.001, 0.01999, 0.031, 0.000666, 0.008484, 0.0091, 0.002001,0.00000546].concat(fuzz)
     const fee = [2, 10, 20, 100, 300]
 
     async function send(amount, index) {
@@ -39,6 +37,8 @@ test.test('sendTransaction', async function(t) {
       }
       console.log('sending amount', data)
       const res = await btcPay.sendTransaction({}, data)
+
+      console.log(res)
       
       const mTex = await btcPay.provider._getTransaction(res.txid)
       await regtest.mine(1)

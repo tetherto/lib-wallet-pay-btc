@@ -4,6 +4,9 @@ const ecc = require('tiny-secp256k1')
 const bip32 = BIP32Factory(ecc)
 const bitcoin = require('bitcoinjs-lib')
 
+// TODO:
+// [] unit tests
+
 class WalletKeyBitcoin {
 
   constructor(config) {
@@ -33,7 +36,6 @@ class WalletKeyBitcoin {
       path
     }
   }
-  //TODO: write test
   addressToScriptHash(addr) {
     const script = bitcoin.address.toOutputScript(addr, this.network)
     const hash = bitcoin.crypto.sha256(script)

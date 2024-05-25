@@ -203,6 +203,13 @@ class WalletPayBitcoin extends WalletPay {
     })
   }
 
+  // @desc send transaction
+  // @param {Object} opts - options
+  // @param {Object} outgoing - transaction details
+  // @param {String} outgoing.address - destination address
+  // @param {String} outgoing.amount - amount to send
+  // @param {String} outgoing.unit - unit of amount
+  // @param {String} outgoing.fee - fee to pay in sat/vbyte. example: 10,
   async sendTransaction(opts, outgoing) {
 
     const tx = new Transaction({

@@ -1,6 +1,74 @@
 const { EventEmitter } = require('events')
 const { Bitcoin } = require('../../wallet/src/currency.js')
 
+
+//TODO: handle unsupported electrum RPC methods
+
+/**
+* @class RequestCache
+* @desc Cache requests to electrum server
+* @param {Object} config - configuration
+* @param {Object} config.store - store to cache requests
+* @param {Number} config.cache_timeout - cache timeout
+* @param {Number} config.max_cache_size - max cache size
+* @param {Number} config.cache_interval - cache interval
+* @param {Number} config.cache_size - cache size
+**/
+class RequestCache {
+  constructor(config) {
+    this.store = config.store
+    this._cache_expiry = config.cache_timeout || 300000 // 5min 
+    this._max_cache_size = config.max_cache_size || 10000
+    this._cache_size = 0
+    this._startCacheTimer()
+  }
+
+  stop() {
+    clearInterval(this._timer)
+  }
+
+  _startCacheTimer() {
+    this._timer = setInterval(async () => {
+      this.store.entries(async (k, [value, exp]) => {
+        if(Date.now() >= exp) return await this.store.delete(k)
+      })
+    }, this._cache_interval)
+  }
+
+  _getCacheIndex() {
+    return this.store.get('cache_index') || []
+  }
+
+  async _removeOldest() {
+    const index = await this._getCacheIndex()
+    const key = index.shift()
+    await this.store.delete(key)
+    await this.store.put('cache_index', index)
+  }
+
+  async set(key, value) {
+    let data
+    if(this._cache_size >= this._max_session_size) {
+      await this._removeOldest()
+    }
+    if(!value.expiry) {
+      data = [value, Date.now() + this._cache_expiry]
+    } else {
+      data = [value, value.expiry]
+    }
+    const index = await this._getCacheIndex()
+    index.push(key)
+    await this.store.put('cache_index', data)
+    this._cache_size = index.length
+    return this.store.put(key, data)
+  }
+
+  async get(key) {
+    const data = await this.store.get(key)
+    return data ? data[0] : null
+  }
+}
+
 class Electrum extends EventEmitter {
 
   constructor(config) {
@@ -12,9 +80,9 @@ class Electrum extends EventEmitter {
     this._net = config.net || require('net')
     this.clientState = 0
     this.requests = new Map()
-    this.cache = new Map()
+    this.cache = new RequestCache({ store: config.store.newInstance({ name: 'electrum-cache'}) })
     this.block_height = 0
-    this._max_cache_size = 100
+    this._max_cache_size = 10
     this._reconnect_count = 0
     this._max_attempt = 10
     this._reconnect_interval = 2000
@@ -126,6 +194,10 @@ class Electrum extends EventEmitter {
     if(!resolve) return this.emit('request-error', `no handler for response id: ${resp.id} - ${JSON.stringify(resp)}`)
 
     const isNull = resp.result === null 
+    if(resp.error) {
+      reject(new Error(`RPC Error: ${JSON.stringify(resp.error)} - ${method}`))
+      return this.requests.delete(resp.id)
+    }
     resolve(isNull ? null : (resp.result || resp.error))
     this.requests.delete(resp.id)
   }
@@ -166,6 +238,10 @@ class Electrum extends EventEmitter {
     return this._makeRequest('blockchain.transaction.broadcast', [tx])
   }
 
+
+  /**
+  * @description get transaction details. Store tx in cache.
+  */
   async getTransaction(txid, sc) {
     const cache = this.cache
     const data = {
@@ -176,9 +252,8 @@ class Electrum extends EventEmitter {
 
     const getOrFetch = async (txid) => {
 
-      if(cache.has(txid)) {
-        return cache.get(txid)
-      }
+      const cacheValue = await cache.get(txid)
+      if(cacheValue) return cacheValue
       const data = await this._getTransaction(txid)
       if(cache.size > this._max_cache_size) {
         cache.delete(cache.keys().next().value);
@@ -229,6 +304,7 @@ class Electrum extends EventEmitter {
       this._reconnect_count = this._max_attempt
       this._client.on('end', () => resolve())
       this._client.end()
+      this.cache.stop()
     })
   }
 
@@ -245,6 +321,11 @@ class Electrum extends EventEmitter {
   async subscribeToAddress(scriptHash) {
     return this._makeRequest('blockchain.scripthash.subscribe', [scriptHash])
   }
+  
+  async unsubscribeFromAddress(scriptHash) {
+    console.log('TODO unsubscribe')
+  }
+
 }
 
 

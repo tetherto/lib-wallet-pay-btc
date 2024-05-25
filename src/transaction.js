@@ -98,11 +98,6 @@ class Transaction extends EventEmitter {
     const sendAmount = new Bitcoin(amount, unit)
     const utxoSet =  await this._syncManager.utxoForAmount({ amount, unit })
 
-    if(utxoSet.utxo.length === 0) {
-      throw new Error('Insufficient funds')
-    }
-
-
     // Generate a fake transaction to determine weight of the transaction
     // then we create a new tx with correct fee
     const fakeTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr)

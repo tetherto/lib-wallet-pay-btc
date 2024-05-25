@@ -102,9 +102,9 @@ test('getNewAddress - address reuse logic', async (t) => {
   await regtest.mine(2)
 
   let _pathBalanceChecked = false
-  btcPay.once('synced-path', async (pt, path, hasBalance) => { 
+  btcPay.once('synced-path', async (pt, path, hasTx) => { 
     t.ok(path === addr.path, 'synced path matches address path')
-    t.ok(hasBalance, 'address has balance')
+    t.ok(hasTx, 'address has balance')
     _pathBalanceChecked = true
   })
 
@@ -126,9 +126,9 @@ test('getNewAddress - address reuse logic', async (t) => {
   const lastExt2 = await btcPay2._hdWallet.getLastExtPath()
   t.ok(lastExt2 === HdWallet.INIT_EXTERNAL_PATH, 'second instance last path is the default path when created')
   _pathBalanceChecked = true
-  btcPay2.once('synced-path', async (pt, path, hasBalance) => { 
+  btcPay2.once('synced-path', async (pt, path, hasTx) => { 
     t.ok(path === addr.path, 'second instance synced path matches address path')
-    t.ok(hasBalance, 'second instance address has balance')
+    t.ok(hasTx, 'second instance address has transactions')
     _pathBalanceChecked = true
   })
   await btcPay2.syncTransactions()
@@ -178,7 +178,7 @@ test('watch addresses', function(t) {
 
 })
 
-solo('syncTransactions ', async function(t) {
+test('syncTransactions ', async function(t) {
   const btcPay = await activeWallet()
 
   async function syncType(sType, pauseCount, opts) {
@@ -247,7 +247,7 @@ solo('syncTransactions ', async function(t) {
 })
 
 
-test('getBalance', (t) => {
+solo('getBalance', (t) => {
   return new Promise(async (resolve, reject) => {
 
     const regtest = await regtestNode()
@@ -255,7 +255,7 @@ test('getBalance', (t) => {
 
     let total = 0
     let payAddr
-    async function checkBal(pt, path, hasBal, gapCount) {
+    async function checkBal(pt, path, hasTx, gapCount) {
       const [sc, addr] = btcPay.keyManager.pathToScriptHash(path, 'p2wpkh')
       const eBal = await btcPay.provider._getBalance(sc) 
 

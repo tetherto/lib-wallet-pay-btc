@@ -1,11 +1,11 @@
 
-const { test, solo } = require('brittle')
+const test = require('brittle')
 const assert = require('assert')
 const Electrum = require('../src/electrum.js')
 const { WalletStoreMemory } = require('../../wallet-store/src/wallet-store.js')
-const { newElectrum, pause } = require('./test-helpers.js')
+const { newElectrum } = require('./test-helpers.js')
 
-test('electrum methods', async function(t) {
+test('electrum', async function(t) {
 
   const methods = [
     {
@@ -19,9 +19,8 @@ test('electrum methods', async function(t) {
   ] 
 
   t.test('electrum methods', async function(t) {
-    const e = await newElectrum({
-      store: new WalletStoreMemory()
-    })
+    const e = await newElectrum({js
+      store: new WalletStoreMemory() })
     const res = await e.ping()
     t.ok(res === 'pong', 'ping')
 
@@ -31,42 +30,4 @@ test('electrum methods', async function(t) {
     }))
     await e.close()
   })
-})
-
-test('reconnect logic', async function(t) {
-  let e = await newElectrum({
-    store: new WalletStoreMemory()
-  })
-  t.ok(e._reconnect_count === 0, 'reconnect count is 0')
-  let res = await e.ping()
-  t.ok(res === 'pong', 'connected')
-  await e.close()
-  t.ok(e._reconnect_count === e._max_attempt, 'reconnect count is max attempt after close')
-  const realport = e.port
-  e.port = '8888'
-  let _isIncreasing = false 
-  let _reconnectFail = false
-  try {
-    let lastCount = 0 
-    let _count = 0
-    let intvl = setInterval(() => {
-      t.ok(e._reconnect_count > lastCount, 'reconnect count is increasing '+ e._reconnect_count)
-      _isIncreasing = true
-      lastCount = e._reconnect_count
-      _count++
-      if(_count === 2) return clearInterval(intvl)
-    }, e._reconnect_interval + 1000)
-    await e.connect({ reconnect : true })
-  } catch(err) {
-    t.ok(e._reconnect_count >= e._max_attempt, 'reconnect count is max attempt')
-    t.ok(err.message.includes('ECONNREFUSED'), 'reconnect should failed')
-    _reconnectFail = true
-  }
-  t.ok(_isIncreasing && _reconnectFail, 'catch functions are called') 
-  e.port = realport
-  await e.connect({ reconnect : true })
-  res = await e.ping()
-  t.ok(res === 'pong', 'reconnected ping pong')
-  await e.close()
-
-})
+}

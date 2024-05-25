@@ -124,11 +124,23 @@ class SyncManager extends EventEmitter {
     const extlist = await state.getWatchedScriptHashes('ext')
     const data = inlist.concat(extlist)
 
-    await Promise.all(data.map(async ([scripthash, addr, path, balHash]) => {
-      if(changeHash === balHash) return 
-      const txHistory = await provider.getAddressHistory(scripthash)
-      await this._processHistory(addr, txHistory)
+    const process = async (data) => {
+      await Promise.all(data.map(async ([scripthash, addr, path, balHash]) => {
+        if(changeHash === balHash) return 
+        const txHistory = await provider.getAddressHistory(scripthash)
+        await this._processHistory(addr, txHistory)
+      }))
+    }
+
+    await process(extlist)
+    await process(inlist)
+
+    await state.addWatchedScriptHashes([], 'in')
+    await Promise.all(inlist.map((scripthash) => {
+      return provider.unsubscribeFromAddress(scripthash)
     }))
+
+
   }
 
   async watchAddress([scriptHash, addr], addrType,) { 
@@ -156,6 +168,9 @@ class SyncManager extends EventEmitter {
 
   async _processHistory(addr, txHistory) {
     const { _addr } = this
+
+    if(txHistory.length === 0 || !txHistory.map) return console.log('txhistory not found ', txHistory) 
+
     if(!await _addr.has(addr.address)) {
       await _addr.newAddress(addr.address)
     }
@@ -167,26 +182,30 @@ class SyncManager extends EventEmitter {
     }))
   }
 
+  /**
+  * @description process a path for transactions/history and count gap limit.
+  */
   async _processPath(path, gapEnd, gapCount) {
     const { keyManager, provider, gapLimit, _halt } = this
 
     if(_halt === true || gapCount >= gapLimit) {
       return [false, null, null, null]
     }
-    let hasBalance = false
+    let hasTx = false
     const [scriptHash, addr] = keyManager.pathToScriptHash(path, HdWallet.getAddressType(path))
     const txHistory = await provider.getAddressHistory(scriptHash)
 
     if(Array.isArray(txHistory) && txHistory.length === 0) {
+      // increase gap count if address has no tx
       gapCount++ 
     } else {
       await this._processHistory(addr, txHistory)
       gapEnd++
       gapCount = 0
-      hasBalance = true
+      hasTx = true
     }
 
-    return [true, hasBalance, gapEnd, gapCount]
+    return [true, hasTx, gapEnd, gapCount]
   }
 
   async syncAccount(pathType, opts) {
@@ -198,17 +217,17 @@ class SyncManager extends EventEmitter {
     const syncType = syncState[pathType]
     let gapEnd = gapLimit
     let gapCount = syncType.gap
-    let done, hasBalance
+    let done, hasTx
     if(syncType.gap >= gapLimit) return
     let count = 0
     await hdWallet.eachAccount(pathType, syncType.path, async (path, halt) => {
       let res = await this._processPath(path, gapEnd, gapCount)
-      let [done, hasBalance] = res
+      let [done, hasTx] = res
       gapEnd = res[2]
       gapCount = res[3]
       if(!done) return halt()
       // Update path tracking state to not reuse addresses
-      if(hasBalance) {
+      if(hasTx) {
         hdWallet.updateLastPath(HdWallet.bumpIndex(path))
       }
       count++ 
@@ -216,7 +235,7 @@ class SyncManager extends EventEmitter {
       syncState[pathType].gap = gapCount
       syncState[pathType].gapEnd = gapEnd
       await state.setSyncState(syncState)
-      this.emit('synced-path', pathType, path, hasBalance, [gapCount, gapLimit, gapEnd])
+      this.emit('synced-path', pathType, path, hasTx, [gapCount, gapLimit, gapEnd])
     })
 
     if(this._halt) {

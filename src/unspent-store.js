@@ -85,11 +85,9 @@ class UnspentStore {
 
   async process() {
     await this.vout.filter(async (utxo) => {
-      const dd = ! (await this.vin.some((vin) => {
-        const zz = vin.prev_txid === utxo.txid && vin.prev_index === utxo.index
-        return zz
+      return ! (await this.vin.some((vin) => {
+        return vin.prev_txid === utxo.txid && vin.prev_index === utxo.index
       }))
-      return dd
     })
     this.ready = true
   }
@@ -120,7 +118,6 @@ class UnspentStore {
       return 
     }
 
-
     await Promise.all(this.locked.map(async (id) => {
       return this.vout.filter((utxo) => utxo.txid !== id)
     }))
@@ -134,6 +131,7 @@ class UnspentStore {
     let total = new Bitcoin(0, amount.type)
     let utxo = []
     let done = false 
+
     await this.vout.entries(async (v) => {
       if(this.locked.includes(v.txid) || done ) return
       total = total.add(v.value)
@@ -146,6 +144,7 @@ class UnspentStore {
       }
     })
     const diff = total.minus(amount)
+
 
     if(utxo.length === 0) {
       throw new Error('Insufficient funds or no utxo')
