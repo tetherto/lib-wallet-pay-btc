@@ -50,6 +50,10 @@ await btcPay.syncTransactions()
 const { address } = await btcPay.getNewAddress()
 
 // Get balance of an address
+// Balance is returned in format of:
+// Confirmed: Confirmed balance. This is transactions that have more than min number of confirmations 
+// Pending: Pending balance. Transactions that have less than min number of confirmations
+// Mempool: Mempool balance. Transactions that are in the mempool and have no confirmations.
 const addrBalance = await btcPay.getBalance({}, address)
 
 // Get total balance accress all addresses
@@ -65,8 +69,8 @@ const walletBalance = await btcPay.getBalance({})
 // - utxo: UTXO used in the transaction
 // - vout: Vout bytes of the transaction
 // - changeAddress: Change address of the transaction. which contains, address, WIF, path, pub key.
-const result = await btcPay.sendTransaction({}, {)
-  to: // bitcoin address of the recipient
+const result = await btcPay.sendTransaction({}, {
+  to: 'bcr111...', // bitcoin address of the recipient
   
   // Amounts of bitcoin to send 
   amount: 0.0001, // Value of amount 
@@ -81,6 +85,12 @@ const tx = await btcPay.getTransaction(result.txid)
 // Get a list of transactions
 const txs = await btcPay.getTransactions(query)
 
+
+### TODO:
+[] Fee estimation. 
+[] Transaction history query 
+[] Handle block reorg
+[] Additional tests for: transaction creation and balance checking. 
 
 ```
 
