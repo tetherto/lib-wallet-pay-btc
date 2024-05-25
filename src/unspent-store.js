@@ -47,16 +47,16 @@ class VinVout {
 class UnspentStore {
 
   constructor(config) {
+    this.store = config.store.newInstance({ name : 'utxo'})
     this.vin = new VinVout({
-      store: config.store.newInstance({ name : 'vin'}),
+      store: config.store.newInstance({ name : 'utxo-vin'}),
       vtype: 'vin'
     })
     this.vout = new VinVout({
-      store: config.store.newInstance({ name : 'vout'}),
+      store: config.store.newInstance({ name : 'utxo-vout'}),
       vtype: 'vout'
     })
     this.ready = false
-    this.store = config.store 
   }
 
   async init() {

@@ -16,7 +16,7 @@ class Balance {
 class AddressManager {
 
   constructor(config) {
-    this.store = config.store
+    this.store = config.store.newInstance({ name : 'addr'})
   }
 
   async init() {
@@ -72,6 +72,7 @@ class SyncManager extends EventEmitter {
     this.keyManager = config.keyManager
     this.currentBlock = config.currentBlock
     this.minBlockConfirm = config.minBlockConfirm
+    this.store = config.store
 
     // @desc: halt syncing
     this._halt = false
@@ -87,9 +88,9 @@ class SyncManager extends EventEmitter {
     return new Promise(async (resolve, reject) => {
       await this._subscribeToScriptHashes()
       this._total = await this.state.getTotalBalance()
-      this._addr = new AddressManager({ store: this.state.store.newInstance({ name : 'addr'}) })
+      this._addr = new AddressManager({ store: this.store }) 
       await this._addr.init()
-      this._unspent = new UnspentStore({ store: this.state.store.newInstance({ name : 'unspent'}) })
+      this._unspent = new UnspentStore({ store: this.store })
       await this._unspent.init()
       resolve()
     })
@@ -139,8 +140,6 @@ class SyncManager extends EventEmitter {
     await Promise.all(inlist.map((scripthash) => {
       return provider.unsubscribeFromAddress(scripthash)
     }))
-
-
   }
 
   async watchAddress([scriptHash, addr], addrType,) { 

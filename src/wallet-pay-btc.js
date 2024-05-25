@@ -102,6 +102,7 @@ class WalletPayBitcoin extends WalletPay {
       keyManager: this.keyManager,
       currentBlock: this.latest_block,
       minBlockConfirm: this.min_block_confirm,
+      store: this.store,
     })
   }
 
@@ -195,6 +196,7 @@ class WalletPayBitcoin extends WalletPay {
     })
   }
 
+  // Pause syncing transactions from electrum
   async pauseSync() {
     return new Promise((resolve) => {
       if(!this._syncManager._isSyncing) return resolve()
