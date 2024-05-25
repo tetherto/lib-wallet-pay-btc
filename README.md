@@ -50,8 +50,11 @@ btcPay.on('sync-path', (pathType, path, hasTx, progress) => {
 })
 
 // Parse blockchain for transactions to your wallet.
-// You need to do this when you need to reset wallet generation 
-await btcPay.syncTransactions({ reset : false // Passing true will resync from scratch })
+// This needs to be run when recreating a wallet. 
+// This can take long depending on the number of addresses a wallet has created.
+await btcPay.syncTransactions({ 
+  reset : false // Passing true will resync from scratch 
+})
 
 
 // Pause the sync process. 
