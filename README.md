@@ -105,6 +105,10 @@ const txs = await btcPay.getTransactions(query)
 // is address a valid bitcoin address
 const isvalid = await btcPay.isValidAddress('bcrt1qxeyapzy3ylv67qnxjtwx8npd8ypjkuy8xstu0m')
 
+// Destroy instance of the wallet. This stops all wallet activity.
+// You need to recreate btcPay instance to use the wallet again.
+await btcPay.destroy()
+
 
 ### TODO:
 [] Fee estimation. 
