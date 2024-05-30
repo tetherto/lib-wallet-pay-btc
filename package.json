@@ -1,4 +1,8 @@
 {
+  "name": "lib-wallet-pay-btc",
+  "version": "0.0.1",
+  "description": "Bitcoin asset module for wallet lib",
+  "main": "index.js",
   "dependencies": {
     "bip32": "4.0.0",
     "bip39": "3.1.0",
@@ -10,12 +14,22 @@
     "brittle": "^3.5.0"
   },
   "scripts": {
+    "lint": "standard --fix",
     "test": "npm run test:all",
     "test:all": "brittle ./test/*.js",
     "test:sync": "brittle ./test/sync-manager.test.js",
     "test:send-tx": "brittle ./test/transactions.test.js",
     "test:pay": "brittle ./test/wallet-pay-btc.test.js",
     "test:electrum": "brittle ./test/*.js"
-  }
-  
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tetherto/lib-wallet-pay-btc.git"
+  },
+  "author": "rbndg (@rbndg)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tetherto/lib-wallet-pay-btc/issues"
+  },
+  "homepage":"https://github.com/tetherto/lib-wallet-pay-btc.git"
 }

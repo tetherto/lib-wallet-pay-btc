@@ -1,6 +1,5 @@
-
 class MempoolSpace {
-  constructor(config) {
+  constructor (config) {
     this.hostname = config.hostnmae || 'mempool.aaa'
     this.path = config.path || '/api/v1/fees/recommended'
 
@@ -9,13 +8,12 @@ class MempoolSpace {
     this._http = config.http || require('https')
     this._fee_timer = config.fee_timer || 60000 // 1min
   }
-  
-  getEstimate() {
 
+  getEstimate () {
     return new Promise((resolve, reject) => {
-      const {hostname, path} = this
+      const { hostname, path } = this
 
-      if(this._latest && (Date.now() - this.latest_t) < this._fee_timer) return resolve(this._latest)
+      if (this._latest && (Date.now() - this.latest_t) < this._fee_timer) return resolve(this._latest)
 
       const options = {
         hostname,
@@ -25,18 +23,18 @@ class MempoolSpace {
         rejectUnauthorized: false,
         requestCert: true,
         agent: false
-      };
+      }
 
       const req = this._http.request(options, (res) => {
-        let data = '';
+        let data = ''
 
         res.on('data', (chunk) => {
-          data += chunk;
-        });
+          data += chunk
+        })
 
         res.on('end', () => {
           try {
-            data = JSON.parse(data);
+            data = JSON.parse(data)
           } catch (e) {
             return reject(e)
           }
@@ -47,13 +45,6 @@ class MempoolSpace {
       })
       req.end()
     })
-
   }
 }
-const f = new MempoolSpace({})
-async function getEstimate() {
-  z = await f.getEstimate()
-  console.log(z)
-}
-getEstimate()
-module.exports = FeeEstimate
+module.exports = MempoolSpace

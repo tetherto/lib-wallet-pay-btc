@@ -3,15 +3,14 @@ const { EventEmitter } = require('events')
 const HdWallet = require('./hdwallet.js')
 const { Bitcoin } = require('../../wallet/src/currency.js')
 const UnspentStore = require('./unspent-store.js')
-const { AddressManager, Balance }  = require('./address-manager.js')
-
+const { AddressManager, Balance } = require('./address-manager.js')
 
 class SyncManager extends EventEmitter {
-  constructor(config) {
+  constructor (config) {
     super()
 
-    this.state = config.state 
-    this.gapLimit = config.gapLimit 
+    this.state = config.state
+    this.gapLimit = config.gapLimit
     this.hdWallet = config.hdWallet
     this.utxoManager = config.utxoManager
     this.provider = config.provider
@@ -30,30 +29,32 @@ class SyncManager extends EventEmitter {
     this.reset()
   }
 
-  init() {
-    return new Promise(async (resolve, reject) => {
-      await this._subscribeToScriptHashes()
-      this._total = await this.state.getTotalBalance()
-      this._addr = new AddressManager({ store: this.store }) 
-      await this._addr.init()
-      this._unspent = new UnspentStore({ store: this.store })
-      await this._unspent.init()
-      resolve()
-    })
+  async init () {
+    await this._subscribeToScriptHashes()
+    this._total = await this.state.getTotalBalance()
+    this._addr = new AddressManager({ store: this.store })
+    await this._addr.init()
+    this._unspent = new UnspentStore({ store: this.store })
+    await this._unspent.init()
   }
-  
-  reset() {
+
+  reset () {
     const total = {
-      in : new Balance(0,0,0), 
-      out: new Balance(0,0,0),
-      fee: new Balance(0,0,0)
+      in: new Balance(0, 0, 0),
+      out: new Balance(0, 0, 0),
+      fee: new Balance(0, 0, 0)
     }
-    this._total = this.state.setTotalBalance(total) 
+    this._total = this.state.setTotalBalance(total)
     this.resumeSync()
     this.state.resetSyncState()
   }
 
-  async _subscribeToScriptHashes() {
+  async close () {
+    this._addr && await this._addr.close()
+    this._unspent && await this._unspent.close()
+  }
+
+  async _subscribeToScriptHashes () {
     const { state, provider } = this
     const scriptHashes = await state.getWatchedScriptHashes()
     provider.on('new-tx', async (changeHash) => {
@@ -65,15 +66,14 @@ class SyncManager extends EventEmitter {
     }))
   }
 
-  async _updateScriptHashBalance(changeHash) {
+  async _updateScriptHashBalance (changeHash) {
     const { provider, state } = this
     const inlist = await state.getWatchedScriptHashes('in')
     const extlist = await state.getWatchedScriptHashes('ext')
-    const data = inlist.concat(extlist)
 
     const process = async (data) => {
       await Promise.all(data.map(async ([scripthash, addr, path, balHash]) => {
-        if(changeHash === balHash) return 
+        if (changeHash === balHash) return
         const txHistory = await provider.getAddressHistory(scripthash)
         await this._processHistory(addr, txHistory)
       }))
@@ -88,35 +88,35 @@ class SyncManager extends EventEmitter {
     }))
   }
 
-  async watchAddress([scriptHash, addr], addrType,) { 
-    const { state, _max_script_watch, provider } = this
+  async watchAddress ([scriptHash, addr], addrType) {
+    const { state, _max_script_watch: maxScriptWatch, provider } = this
     const hashList = await state.getWatchedScriptHashes(addrType)
-    if(hashList.length >= _max_script_watch) {
+    if (hashList.length >= maxScriptWatch) {
       hashList.shift()
     }
     const balHash = await provider.subscribeToAddress(scriptHash)
-    if(balHash?.message) {
-      throw new Error('Failed to subscribe to address '+ balHash.message)
+    if (balHash?.message) {
+      throw new Error('Failed to subscribe to address ' + balHash.message)
     }
     hashList.push([scriptHash, addr, addr.path, balHash])
     await state.addWatchedScriptHashes(hashList, addrType)
   }
 
-  async unlockUtxo(state) {
+  async unlockUtxo (state) {
     return this._unspent.unlock(state)
   }
 
-  updateBlock(block) {
-    if( block <= 0 ) throw new Error("invalid block height")
+  updateBlock (block) {
+    if (block <= 0) throw new Error('invalid block height')
     this.currentBlock = block
   }
 
-  async _processHistory(addr, txHistory) {
+  async _processHistory (addr, txHistory) {
     const { _addr } = this
 
-    if(txHistory.length === 0 || !txHistory.map) return console.log('txhistory not found ', txHistory) 
+    if (txHistory.length === 0 || !txHistory.map) return console.log('txhistory not found ', txHistory)
 
-    if(!await _addr.has(addr.address)) {
+    if (!await _addr.has(addr.address)) {
       await _addr.newAddress(addr.address)
     }
 
@@ -124,7 +124,7 @@ class SyncManager extends EventEmitter {
 
     await Promise.all(txHistory.map(async (tx) => {
       const txState = this._getTxState(tx)
-      await this._processUtxo(tx.out, 'out', txState, tx.fee, addr ,tx.txid)
+      await this._processUtxo(tx.out, 'out', txState, tx.fee, addr, tx.txid)
       await this._processUtxo(tx.in, 'in', txState, 0, addr, tx.txid)
     }))
   }
@@ -132,19 +132,19 @@ class SyncManager extends EventEmitter {
   /**
   * @description process a path for transactions/history and count gap limit.
   */
-  async _processPath(path, gapEnd, gapCount) {
+  async _processPath (path, gapEnd, gapCount) {
     const { keyManager, provider, gapLimit, _halt } = this
 
-    if(_halt === true || gapCount >= gapLimit) {
+    if (_halt === true || gapCount >= gapLimit) {
       return [false, null, null, null]
     }
     let hasTx = false
     const [scriptHash, addr] = keyManager.pathToScriptHash(path, HdWallet.getAddressType(path))
     const txHistory = await provider.getAddressHistory(scriptHash)
 
-    if(Array.isArray(txHistory) && txHistory.length === 0) {
+    if (Array.isArray(txHistory) && txHistory.length === 0) {
       // increase gap count if address has no tx
-      gapCount++ 
+      gapCount++
     } else {
       await this._processHistory(addr, txHistory)
       gapEnd++
@@ -155,29 +155,26 @@ class SyncManager extends EventEmitter {
     return [true, hasTx, gapEnd, gapCount]
   }
 
-  async syncAccount(pathType, opts) {
-    if(this._halt || this._isSyncing) throw new Error("already syncing")
+  async syncAccount (pathType, opts) {
+    if (this._halt || this._isSyncing) throw new Error('already syncing')
     const { gapLimit, hdWallet, state } = this
     this._isSyncing = true
 
-    let syncState = await state.getSyncState(opts)
+    const syncState = await state.getSyncState(opts)
     const syncType = syncState[pathType]
     let gapEnd = gapLimit
     let gapCount = syncType.gap
-    let done, hasTx
-    if(syncType.gap >= gapLimit) return
-    let count = 0
+    if (syncType.gap >= gapLimit) return
     await hdWallet.eachAccount(pathType, syncType.path, async (path, halt) => {
-      let res = await this._processPath(path, gapEnd, gapCount)
-      let [done, hasTx] = res
+      const res = await this._processPath(path, gapEnd, gapCount)
+      const [done, hasTx] = res
       gapEnd = res[2]
       gapCount = res[3]
-      if(!done) return halt()
+      if (!done) return halt()
       // Update path tracking state to not reuse addresses
-      if(hasTx) {
+      if (hasTx) {
         hdWallet.updateLastPath(HdWallet.bumpIndex(path))
       }
-      count++ 
       syncState[pathType].path = path
       syncState[pathType].gap = gapCount
       syncState[pathType].gapEnd = gapEnd
@@ -185,21 +182,21 @@ class SyncManager extends EventEmitter {
       this.emit('synced-path', pathType, path, hasTx, [gapCount, gapLimit, gapEnd])
     })
 
-    if(this._halt) {
+    if (this._halt) {
       this._isSyncing = false
-      return 
-    } 
+      return
+    }
     await this._unspent.process()
     this._isSyncing = false
   }
 
-  getBalance(addr) {
+  getBalance (addr) {
     let total
-    if(!addr) {
-      total = this._total 
+    if (!addr) {
+      total = this._total
     } else {
       total = this._addr.get(addr)
-      if(!total) throw new Error('Address not valid or not processed for balance '+ addr)
+      if (!total) throw new Error('Address not valid or not processed for balance ' + addr)
     }
     const totalBalance = new Balance(0, 0, 0)
     totalBalance.mempool = total.out.mempool.minus(total.in.mempool)
@@ -208,30 +205,30 @@ class SyncManager extends EventEmitter {
     return totalBalance
   }
 
-  _getTxState(tx) {
-    if(tx.height === 0) return 'mempool'
+  _getTxState (tx) {
+    if (tx.height === 0) return 'mempool'
     // minimum number of confirmations before the tx is accepted
-    if(this.currentBlock - tx.height >= this.minBlockConfirm) return 'confirmed'
+    if (this.currentBlock - tx.height >= this.minBlockConfirm) return 'confirmed'
     return 'pending'
   }
 
-  async _processUtxo(utxoList, inout, txState, txFee = 0, addr, txid) {
-    const { _addr, _total }  = this
+  async _processUtxo (utxoList, inout, txState, txFee = 0, addr, txid) {
+    const { _addr, _total } = this
 
     return Promise.all(utxoList.map(async (utxo) => {
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
       const bal = _addr.get(utxo.address)
-      if(utxo.address !== addr.address || !bal) return 
-      const point = inout === 'out' ? utxo.txid +':'+ utxo.index : utxo.prev_txid +':'+ utxo.prev_index
+      if (utxo.address !== addr.address || !bal) return
+      const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
 
       // Prevent duplicate txid from being added
-      if((inout === 'in' && bal.intxid.includes(point)) || (inout === 'out' && bal.outtxid.includes(point))) return
+      if ((inout === 'in' && bal.intxid.includes(point)) || (inout === 'out' && bal.outtxid.includes(point))) return
 
       bal[inout][txState] = bal[inout][txState].add(utxo.value)
       _total[inout][txState] = _total[inout][txState].add(utxo.value)
 
-      if(inout === 'out') {
+      if (inout === 'out') {
         bal.fee[txState] = bal.fee[txState].add(txFee)
         bal.outtxid.push(point)
       } else {
@@ -243,22 +240,22 @@ class SyncManager extends EventEmitter {
     }))
   }
 
-  stopSync() {
-    this._halt = true 
+  stopSync () {
+    this._halt = true
   }
 
-  resumeSync() {
+  resumeSync () {
     this._halt = false
   }
 
-  isStopped() { return this._halt }
+  isStopped () { return this._halt }
 
-  async utxoForAmount(value, strategy) {
+  async utxoForAmount (value, strategy) {
     const amount = new Bitcoin(value.amount, value.unit)
     return this._unspent.getUtxoForAmount(amount, strategy)
   }
 
-  getTransactions(fn) {
+  getTransactions (fn) {
     return this._addr.getTransactions(fn)
   }
 }

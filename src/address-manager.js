@@ -1,67 +1,69 @@
-
 const { Bitcoin } = require('../../wallet/src/currency.js')
 
 class Balance {
-
-  constructor(confirmed, pending, mempool) {
+  constructor (confirmed, pending, mempool) {
     this.confirmed = new Bitcoin(confirmed, 'main')
-    this.pending = new Bitcoin(pending,'main')
+    this.pending = new Bitcoin(pending, 'main')
     this.mempool = new Bitcoin(mempool, 'main')
   }
 }
 
-
 const MAX_BLOCK_SIZE = 100
 
 class AddressManager {
-  constructor(config) {
-    this.store = config.store.newInstance({ name : 'addr'})
-    this.history = config.store.newInstance({ name : 'tx-history'})
+  constructor (config) {
+    this.store = config.store.newInstance({ name: 'addr' })
+    this.history = config.store.newInstance({ name: 'tx-history' })
   }
 
-  async init() {
+  async init () {
     await this.store.init()
     await this._setHistoryIndex()
   }
 
-  _newAddr() {
+  async close () {
+    await this.store.close()
+    await this.history.close()
+  }
+
+  _newAddr () {
     return {
       // @desc total balances for VIN and VOUTS
-      in : new Balance(0, 0, 0), 
-      out : new Balance(0 ,0, 0),
+      in: new Balance(0, 0, 0),
+      out: new Balance(0, 0, 0),
       // @desc: transaction fee totals
-      fee: new Balance(0,0,0),
+      fee: new Balance(0, 0, 0),
       // @desc: txid of processsed vins and vouts
-      intxid : [],
-      outtxid : [],
-    } 
+      intxid: [],
+      outtxid: []
+    }
   }
 
-  async has(addr) {
-    return !! this.get(addr)
+  async has (addr) {
+    return !!this.get(addr)
   }
 
-  async clear() {
+  async clear () {
     this.store.clear()
   }
 
-  async newAddress(addr) {
+  async newAddress (addr) {
     const data = this._newAddr()
     await this.store.put(addr, data)
     return data
   }
 
-  set(addr, data) {
+  set (addr, data) {
     return this.store.put(addr, data)
   }
 
-  get(addr) {
+  get (addr) {
     return this.store.get(addr)
   }
 
-  async _setHistoryIndex() {
-    const index = await this._getIndex() 
-    if(!index) {
+  async _setHistoryIndex () {
+    const index = await this._getIndex()
+    if (!index) {
       await this.history.put('max_block_size', MAX_BLOCK_SIZE)
       this._max_block_size = MAX_BLOCK_SIZE
       return this._setIndex(index)
@@ -70,22 +72,22 @@ class AddressManager {
     return index
   }
 
-  _getIndex() {
+  _getIndex () {
     return this.history.get('index')
   }
 
-  _setIndex(index){
+  _setIndex (index) {
     return this.history.put('index', index)
   }
 
-  _getTxHeight(height) {
+  _getTxHeight (height) {
     return this.history.get(height)
   }
 
-  async _removeFromMempool(txid) {
-    const mp = await this.history.get('i:'+0) || []
-    for(let x in mp) {
-      if(mp[x].txid === txid) {
+  async _removeFromMempool (txid) {
+    const mp = await this.history.get('i:' + 0) || []
+    for (const x in mp) {
+      if (mp[x].txid === txid) {
         mp.splice(x, 1)
         return
       }
@@ -95,32 +97,31 @@ class AddressManager {
   /**
   * @desc Store transaction history in a self balancing btree
   **/
-  storeTxHistory(history) {
-    return Promise.all(history.map(async(tx) => {
+  storeTxHistory (history) {
+    return Promise.all(history.map(async (tx) => {
       const height = tx.height === 0 ? 'mempool' : tx.height
       let heightTx = await this._getTxHeight(tx.height)
-      if(!heightTx) {
+      if (!heightTx) {
         heightTx = []
       } else {
-        let exists = heightTx.some( htx => htx.txid === tx.txid)
-        if(exists) return 
+        const exists = heightTx.some(htx => htx.txid === tx.txid)
+        if (exists) return
       }
       await this._removeFromMempool(tx)
       heightTx.push(tx)
-      return this.history.put('i:'+height,heightTx)
+      return this.history.put('i:' + height, heightTx)
     }))
   }
 
-  getTransactions(fn){
+  getTransactions (fn) {
     return this.history.entries(async (key, value) => {
-      if(key.indexOf('i:') !== 0) return 
+      if (key.indexOf('i:') !== 0) return
       return await fn(value)
     })
   }
-
 }
 
 module.exports = {
   AddressManager,
   Balance
-} 
+}

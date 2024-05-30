@@ -3,8 +3,7 @@ const { EventEmitter } = require('events')
 const { Bitcoin } = require('../../wallet/src/currency.js')
 
 class Transaction extends EventEmitter {
-  
-  constructor(config) {
+  constructor (config) {
     super()
 
     this._max_fee_limit = 100000 || config.max_fee_limit
@@ -15,24 +14,24 @@ class Transaction extends EventEmitter {
     this._syncManager = config.syncManager
   }
 
-  async send(opts) {
+  async send (opts) {
     const tx = await this._createTransaction(opts)
     const txid = await this._broadcastTransaction(tx)
-    if(txid?.message) {
+    if (txid?.message) {
       this._syncManager.unlockUtxo(false)
-      throw new Error('Broadcast failed: '+txid.message.split("\n").shift())
+      throw new Error('Broadcast failed: ' + txid.message.split('\n').shift())
     }
     this._syncManager.unlockUtxo(true)
     return tx
   }
 
-  async _broadcastTransaction(tx) {
+  async _broadcastTransaction (tx) {
     return this.provider.broadcastTransaction(tx.hex)
   }
 
-  async _generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, weight=1) {
+  async _generateRawTx (utxoSet, fee, sendAmount, address, changeAddr, weight = 1) {
     const { keyManager, network } = this
-    const { utxo, total } = utxoSet 
+    const { utxo, total } = utxoSet
     const psbt = new bitcoin.Psbt({ network: bitcoin.networks[network] })
 
     utxo.forEach((utxo, index) => {
@@ -42,41 +41,41 @@ class Transaction extends EventEmitter {
         witnessUtxo: {
           script: Buffer.from(utxo.witness_hex, 'hex'),
           value: +utxo.value.toBaseUnit()
-        },
+        }
       })
 
       psbt.updateInput(index, {
         bip32Derivation: [
           {
             masterFingerprint: keyManager.bip32.fingerprint,
-            path : utxo.address_path,
+            path: utxo.address_path,
             pubkey: Buffer.from(utxo.address_public_key, 'hex')
-          },
-        ]})
+          }
+        ]
+      })
     })
-    
+
     const totalFee = Bitcoin.BN(fee).times(weight)
     const change = Bitcoin.BN(total.toBaseUnit()).minus(sendAmount.toBaseUnit()).minus(totalFee).toNumber()
 
-
-    if(change < 0) {
+    if (change < 0) {
       await this._syncManager.unlockUtxo(false)
-      throw new Error('Negative change value calculated, insufficient funds or not enough utxo'+change)
+      throw new Error('Negative change value calculated, insufficient funds or not enough utxo' + change)
     }
 
     psbt.addOutput({
       address,
-      value: +sendAmount.toBaseUnit() 
+      value: +sendAmount.toBaseUnit()
     })
 
     psbt.addOutput({
-      address: changeAddr.address, 
+      address: changeAddr.address,
       value: change
     })
-    utxo.forEach((u,index) => {
+    utxo.forEach((u, index) => {
       psbt.signInputHD(index, keyManager.bip32)
     })
-    psbt.finalizeAllInputs();
+    psbt.finalizeAllInputs()
     const tx = psbt.extractTransaction()
     return {
       sendAddress: address,
@@ -90,13 +89,12 @@ class Transaction extends EventEmitter {
     }
   }
 
-  async _createTransaction({ address, amount, unit, fee}) {
-
-    if(!fee || fee <= 0 || fee > this._max_fee_limit) throw new Error('Invalid fee '+fee)
+  async _createTransaction ({ address, amount, unit, fee }) {
+    if (!fee || fee <= 0 || fee > this._max_fee_limit) throw new Error('Invalid fee ' + fee)
 
     const changeAddr = await this._getInternalAddress()
     const sendAmount = new Bitcoin(amount, unit)
-    const utxoSet =  await this._syncManager.utxoForAmount({ amount, unit })
+    const utxoSet = await this._syncManager.utxoForAmount({ amount, unit })
 
     // Generate a fake transaction to determine weight of the transaction
     // then we create a new tx with correct fee
@@ -104,8 +102,7 @@ class Transaction extends EventEmitter {
     const realTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, fakeTx.vSize)
     realTx.changeAddress = changeAddr
     return realTx
-
   }
 }
 
-module.exports = Transaction;
+module.exports = Transaction

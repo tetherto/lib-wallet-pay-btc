@@ -1,8 +1,7 @@
 const { EventEmitter } = require('events')
 const { Bitcoin } = require('../../wallet/src/currency.js')
 
-
-//TODO: handle unsupported electrum RPC methods
+// TODO: handle unsupported electrum RPC methods
 
 /**
 * @class RequestCache
@@ -15,43 +14,44 @@ const { Bitcoin } = require('../../wallet/src/currency.js')
 * @param {Number} config.cache_size - cache size
 **/
 class RequestCache {
-  constructor(config) {
+  constructor (config) {
     this.store = config.store
-    this._cache_expiry = config.cache_timeout || 300000 // 5min 
+    this._cache_expiry = config.cache_timeout || 300000 // 5min
     this._max_cache_size = config.max_cache_size || 10000
     this._cache_size = 0
     this._startCacheTimer()
   }
 
-  stop() {
+  async stop () {
     clearInterval(this._timer)
+    return this.store.close()
   }
 
-  _startCacheTimer() {
+  _startCacheTimer () {
     this._timer = setInterval(async () => {
       this.store.entries(async (k, [value, exp]) => {
-        if(Date.now() >= exp) return await this.store.delete(k)
+        if (Date.now() >= exp) return await this.store.delete(k)
       })
     }, this._cache_interval)
   }
 
-  _getCacheIndex() {
+  _getCacheIndex () {
     return this.store.get('cache_index') || []
   }
 
-  async _removeOldest() {
+  async _removeOldest () {
     const index = await this._getCacheIndex()
     const key = index.shift()
     await this.store.delete(key)
     await this.store.put('cache_index', index)
   }
 
-  async set(key, value) {
+  async set (key, value) {
     let data
-    if(this._cache_size >= this._max_session_size) {
+    if (this._cache_size >= this._max_session_size) {
       await this._removeOldest()
     }
-    if(!value.expiry) {
+    if (!value.expiry) {
       data = [value, Date.now() + this._cache_expiry]
     } else {
       data = [value, value.expiry]
@@ -63,24 +63,23 @@ class RequestCache {
     return this.store.put(key, data)
   }
 
-  async get(key) {
+  async get (key) {
     const data = await this.store.get(key)
     return data ? data[0] : null
   }
 }
 
 class Electrum extends EventEmitter {
-
-  constructor(config) {
+  constructor (config) {
     super()
-    if(!config.host || !config.port) throw new Error('Network is required')
+    if (!config.host || !config.port) throw new Error('Network is required')
     this._subscribe()
     this.port = config.port
     this.host = config.host
     this._net = config.net || require('net')
     this.clientState = 0
     this.requests = new Map()
-    this.cache = new RequestCache({ store: config.store.newInstance({ name: 'electrum-cache'}) })
+    this.cache = new RequestCache({ store: config.store.newInstance({ name: 'electrum-cache' }) })
     this.block_height = 0
     this._max_cache_size = 10
     this._reconnect_count = 0
@@ -88,12 +87,12 @@ class Electrum extends EventEmitter {
     this._reconnect_interval = 2000
   }
 
-  _subscribe() {
+  _subscribe () {
     this.on('blockchain.headers.subscribe', (height) => {
       this.block_height = height.height
       this.emit('new-block', height)
     })
-    
+
     this.on('blockchain.scripthash.subscribe', (data) => {
       this.emit('new-tx', data)
     })
@@ -104,27 +103,24 @@ class Electrum extends EventEmitter {
   * @param {Object} opts - options
   * @param {Boolean} opts.reconnect - reconnect if connection is lost.
   **/
-  connect(opts = {}) {
-    let isDone = false
-
-    if(opts.reconnect) this._reconnect_count = 0
+  connect (opts = {}) {
+    if (opts.reconnect) this._reconnect_count = 0
     return new Promise((resolve, reject) => {
       this._client = this._net.createConnection(this.port, this.host, () => {
         this.clientState = 1
         this._reconnect_count = 0
         resolve()
-        isDone = true
       })
       this._client.on('data', (data) => {
         const response = data.toString().split('\n')
         response.forEach((data) => {
-          if(!data) return
+          if (!data) return
           this._handleResponse(data)
         })
       })
-      this._client.once('close', async (err) => {
+      this._client.once('close', async () => {
         this.clientState = 0
-        this._reconn(resolve,reject, _err)
+        this._reconn(resolve, reject, _err)
       })
       let _err
       this._client.once('error', (err) => {
@@ -134,26 +130,26 @@ class Electrum extends EventEmitter {
     })
   }
 
-  async _reconn(resolve, reject, err = {}) {
+  async _reconn (resolve, reject, err = {}) {
     const errMsg = err.message || err.errors?.map(e => e.message).join(' ')
-    if(this._reconnect_count >= this._max_attempt) return reject(new Error('gave up connecting to electrum '+ errMsg))
+    if (this._reconnect_count >= this._max_attempt) return reject(new Error('gave up connecting to electrum ' + errMsg))
     setTimeout(async () => {
-      if(this._reconnect_count >= this._max_attempt) return reject(new Error('gave up connecting to electrum '+ errMsg))
+      if (this._reconnect_count >= this._max_attempt) return reject(new Error('gave up connecting to electrum ' + errMsg))
       this._reconnect_count++
       try {
         await this.connect()
-      } catch(err) {
-        if(this._reconnect_count >= this._max_attempt) return reject(err)
+      } catch (err) {
+        if (this._reconnect_count >= this._max_attempt) return reject(err)
         await this._reconn(resolve, reject)
         return
       }
       resolve()
     }, this._reconnect_interval)
   }
-  
+
   _rpcPayload (method, params, id) {
     return JSON.stringify({
-		  jsonrpc: '2.0',
+      jsonrpc: '2.0',
       id,
       method,
       params
@@ -161,40 +157,39 @@ class Electrum extends EventEmitter {
   }
 
   _makeRequest (method, params) {
-    return new Promise( async (resolve, reject) => {
-      if(this.clientState !== 1) {
+    return new Promise((resolve, reject) => {
+      if (this.clientState !== 1) {
         return reject(new Error('client not connected'))
       }
-      let id = Date.now() +"-"+parseInt(Math.random() * 100000000) 
+      const id = Date.now() + '-' + parseInt(Math.random() * 100000000)
       const data = this._rpcPayload(method, params, id)
       this.requests.set(id, [resolve, reject, method])
-      this._client.write(data+"\n")
+      this._client.write(data + '\n')
     })
   }
 
-
-  _handleResponse(data) {
+  _handleResponse (data) {
     let resp
     try {
       resp = JSON.parse(data.toString())
-    } catch(err) { 
+    } catch (err) {
       this.emit('request-error', err)
-      return 
+      return
     }
 
-    if(resp?.method?.includes('.subscribe')) {
+    if (resp?.method?.includes('.subscribe')) {
       this.emit(resp.method, resp.params.pop())
       this.requests.delete(resp?.id)
       return
     }
 
     const _resp = this.requests.get(resp.id)
-    const [resolve, reject, method] =_resp || []
+    const [resolve, reject, method] = _resp || []
 
-    if(!resolve) return this.emit('request-error', `no handler for response id: ${resp.id} - ${JSON.stringify(resp)}`)
+    if (!resolve) return this.emit('request-error', `no handler for response id: ${resp.id} - ${JSON.stringify(resp)}`)
 
-    const isNull = resp.result === null 
-    if(resp.error) {
+    const isNull = resp.result === null
+    if (resp.error) {
       reject(new Error(`RPC Error: ${JSON.stringify(resp.error)} - ${method}`))
       return this.requests.delete(resp.id)
     }
@@ -202,23 +197,22 @@ class Electrum extends EventEmitter {
     this.requests.delete(resp.id)
   }
 
-  async getAddressHistory(scriptHash) {
+  async getAddressHistory (scriptHash) {
     let txData
     try {
-
       const history = await this._makeRequest('blockchain.scripthash.get_history', [scriptHash])
       txData = await Promise.all(history.map(async (tx, index) => {
         const txData = await this.getTransaction(tx.tx_hash, scriptHash)
-        txData.height = history[index].height;
+        txData.height = history[index].height
         return txData
       }))
-    } catch(err) {
-      return { error : err }
+    } catch (err) {
+      return { error: err }
     }
     return txData
   }
 
-  _processTxVout(vout) {
+  _processTxVout (vout) {
     return {
       address: this._getTxAddress(vout.scriptPubKey),
       value: new Bitcoin(vout.value, 'main'),
@@ -226,37 +220,35 @@ class Electrum extends EventEmitter {
     }
   }
 
-  _getTransaction(txid) {
+  _getTransaction (txid) {
     return this._makeRequest('blockchain.transaction.get', [txid, true])
   }
 
-  _getBalance(scriptHash) {
+  _getBalance (scriptHash) {
     return this._makeRequest('blockchain.scripthash.get_balance', [scriptHash])
   }
 
-  async broadcastTransaction(tx) {
+  async broadcastTransaction (tx) {
     return this._makeRequest('blockchain.transaction.broadcast', [tx])
   }
-
 
   /**
   * @description get transaction details. Store tx in cache.
   */
-  async getTransaction(txid, sc) {
+  async getTransaction (txid, sc) {
     const cache = this.cache
     const data = {
       txid,
-      out : [],
-      in : []
+      out: [],
+      in: []
     }
 
     const getOrFetch = async (txid) => {
-
       const cacheValue = await cache.get(txid)
-      if(cacheValue) return cacheValue
+      if (cacheValue) return cacheValue
       const data = await this._getTransaction(txid)
-      if(cache.size > this._max_cache_size) {
-        cache.delete(cache.keys().next().value);
+      if (cache.size > this._max_cache_size) {
+        cache.delete(cache.keys().next().value)
       }
       cache.set(txid, data)
       return data
@@ -286,19 +278,19 @@ class Electrum extends EventEmitter {
     return data
   }
 
-  _getTxAddress(scriptPubKey) {
-    if(scriptPubKey.address) return scriptPubKey.address
-    if(scriptPubKey.addresses) return scriptPubKey.addresses
+  _getTxAddress (scriptPubKey) {
+    if (scriptPubKey.address) return scriptPubKey.address
+    if (scriptPubKey.addresses) return scriptPubKey.addresses
     return null
   }
 
-  async subscribeToBlocks() {
+  async subscribeToBlocks () {
     const height = await this._makeRequest('blockchain.headers.subscribe', [])
     this.block_height = height.height
     this.emit('new-block', height)
   }
 
-  close() {
+  close () {
     return new Promise((resolve) => {
       this.clientState = 0
       this._reconnect_count = this._max_attempt
@@ -308,25 +300,23 @@ class Electrum extends EventEmitter {
     })
   }
 
-  rpc(method, params) {
+  rpc (method, params) {
     return this._makeRequest(method, params)
   }
- 
+
   async ping (opts) {
     const res = await this._makeRequest('server.ping', [])
-    if(!res) return 'pong'
+    if (!res) return 'pong'
     throw new Error('ping failed')
   }
 
-  async subscribeToAddress(scriptHash) {
+  async subscribeToAddress (scriptHash) {
     return this._makeRequest('blockchain.scripthash.subscribe', [scriptHash])
   }
-  
-  async unsubscribeFromAddress(scriptHash) {
+
+  async unsubscribeFromAddress (scriptHash) {
     console.log('TODO unsubscribe')
   }
-
 }
-
 
 module.exports = Electrum
