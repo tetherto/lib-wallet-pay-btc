@@ -1,6 +1,5 @@
 const test = require('brittle')
 const {
-  KeyManager,
   activeWallet,
   regtestNode,
   pause,
@@ -16,7 +15,6 @@ test.test('sendTransaction', { timeout: 600000 }, async function (t) {
     const regtest = await regtestNode()
     const btcPay = await activeWallet()
 
-    const { address } = await btcPay.getNewAddress()
     const { result: nodeAddr } = await regtest.getNewAddress()
 
     // const fuzz = Array.from({ length: 10 }, () => Math.random() * (2 - 0.00000546) + 0.00000546).map(num => +num.toFixed(8));
@@ -36,7 +34,7 @@ test.test('sendTransaction', { timeout: 600000 }, async function (t) {
 
       console.log(res)
 
-      const mTex = await btcPay.provider._getTransaction(res.txid)
+      await btcPay.provider._getTransaction(res.txid)
       await regtest.mine(1)
 
       const eTx = await btcPay.provider._getTransaction(res.txid)

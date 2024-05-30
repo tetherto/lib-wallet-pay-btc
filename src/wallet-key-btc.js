@@ -13,6 +13,11 @@ class WalletKeyBitcoin {
     // this.bip32 = bip32.fromBase58(bip32.fromSeed(this.seed.seed).neutered().toBase58(), this.network)
   }
 
+  close() {
+    this.seed = null 
+    this.bip32 = null
+  }
+
   setNetwork (network) {
     if (network === 'mainnet') network = 'bitcoin'
     this.network = bitcoin.networks[network]

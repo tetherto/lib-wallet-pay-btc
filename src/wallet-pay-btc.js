@@ -41,9 +41,9 @@ class StateDb {
     }
   }
 
-  resetSyncState () {
+  async resetSyncState () {
     const state = this._newSyncState()
-    this.store.put('sync_state', state)
+    await this.store.put('sync_state', state)
     return state
   }
 
@@ -70,6 +70,7 @@ class StateDb {
 
 class WalletPayBitcoin extends WalletPay {
   static networks = ['regtest', 'mainnet', 'testnet', 'signet', 'bitcoin']
+  static events = ['ready', 'synced-path', 'new-tx']
 
   constructor (config) {
     super(config)
@@ -108,6 +109,8 @@ class WalletPayBitcoin extends WalletPay {
     await this.state.store.close()
     await this._syncManager.close()
     await this._hdWallet.close()
+    await this.keyManager.close()
+    WalletPayBitcoin.events.forEach((event) => this.removeAllListeners(event))
   }
 
   async initialize (wallet) {
@@ -140,12 +143,18 @@ class WalletPayBitcoin extends WalletPay {
     return Promise.resolve(electrum)
   }
 
+  _onNewTx() {
+    return new Promise((resolve, reject) => {
+      this.once('new-tx', () => resolve())
+    })
+  }
+
   async getNewAddress (config = {}) {
     let path = this._hdWallet.getLastExtPath()
     const addrType = HdWallet.getAddressType(path)
     const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
     path = HdWallet.bumpIndex(path)
-    this._hdWallet.updateLastPath(path)
+    await this._hdWallet.updateLastPath(path)
     await this._syncManager.watchAddress([hash, addr], 'ext')
     return addr
   }
@@ -155,7 +164,7 @@ class WalletPayBitcoin extends WalletPay {
     const addrType = HdWallet.getAddressType(path)
     const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
     path = HdWallet.bumpIndex(path)
-    this._hdWallet.updateLastPath(path)
+    await this._hdWallet.updateLastPath(path)
     await this._syncManager.watchAddress([hash, addr], 'in')
     return addr
   }
@@ -183,12 +192,10 @@ class WalletPayBitcoin extends WalletPay {
     await _syncManager.syncAccount('external', opts)
     if (_syncManager.isStopped()) {
       _syncManager.resumeSync()
-      this.emit('sync-end')
       return
     }
     await _syncManager.syncAccount('internal', opts)
     _syncManager.resumeSync()
-    this.emit('sync-end')
   }
 
   // Pause syncing transactions from electrum

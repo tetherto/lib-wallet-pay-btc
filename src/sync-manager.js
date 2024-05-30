@@ -38,13 +38,13 @@ class SyncManager extends EventEmitter {
     await this._unspent.init()
   }
 
-  reset () {
+  async reset () {
     const total = {
       in: new Balance(0, 0, 0),
       out: new Balance(0, 0, 0),
       fee: new Balance(0, 0, 0)
     }
-    this._total = this.state.setTotalBalance(total)
+    this._total = await this.state.setTotalBalance(total)
     this.resumeSync()
     this.state.resetSyncState()
   }
@@ -114,8 +114,6 @@ class SyncManager extends EventEmitter {
   async _processHistory (addr, txHistory) {
     const { _addr } = this
 
-    if (txHistory.length === 0 || !txHistory.map) return console.log('txhistory not found ', txHistory)
-
     if (!await _addr.has(addr.address)) {
       await _addr.newAddress(addr.address)
     }
@@ -156,7 +154,7 @@ class SyncManager extends EventEmitter {
   }
 
   async syncAccount (pathType, opts) {
-    if (this._halt || this._isSyncing) throw new Error('already syncing')
+    if (this._halt || this._isSyncing) throw new Error('already syncing '+this._halt+' '+this._isSyncing)
     const { gapLimit, hdWallet, state } = this
     this._isSyncing = true
 
@@ -164,7 +162,10 @@ class SyncManager extends EventEmitter {
     const syncType = syncState[pathType]
     let gapEnd = gapLimit
     let gapCount = syncType.gap
-    if (syncType.gap >= gapLimit) return
+    if (syncType.gap >= gapLimit) {
+      this._isSyncing = false
+      return
+    }
     await hdWallet.eachAccount(pathType, syncType.path, async (path, halt) => {
       const res = await this._processPath(path, gapEnd, gapCount)
       const [done, hasTx] = res
@@ -175,9 +176,11 @@ class SyncManager extends EventEmitter {
       if (hasTx) {
         hdWallet.updateLastPath(HdWallet.bumpIndex(path))
       }
-      syncState[pathType].path = path
-      syncState[pathType].gap = gapCount
-      syncState[pathType].gapEnd = gapEnd
+      const syncType = syncState[pathType]
+      syncType.path = path
+      syncType.gap = gapCount
+      syncType.gapEnd = gapEnd
+      syncState[pathType] = syncType
       await state.setSyncState(syncState)
       this.emit('synced-path', pathType, path, hasTx, [gapCount, gapLimit, gapEnd])
     })

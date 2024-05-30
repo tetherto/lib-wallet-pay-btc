@@ -1,5 +1,4 @@
 const test = require('brittle')
-const assert = require('assert')
 const HdWallet = require('../src/hdwallet.js')
 const { WalletStoreMemory } = require('./test-helpers.js')
 

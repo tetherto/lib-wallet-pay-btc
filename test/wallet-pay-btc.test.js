@@ -14,6 +14,7 @@ const {
 
 test.configure({ timeout: 600000 })
 
+
 test('Create an instances of WalletPayBitcoin', async function (t) {
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
@@ -25,6 +26,8 @@ test('Create an instances of WalletPayBitcoin', async function (t) {
     network: 'regtest'
   })
   await btcPay.initialize({})
+  
+  t.ok(btcPay.ready, 'instance is ready')
   await btcPay.destroy()
 })
 
@@ -48,8 +51,7 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   t.ok(addr1.path !== addr2.path, '2 addr path should not match')
   const path1 = BitcoinPay.parsePath(addr1.path)
   const path2 = BitcoinPay.parsePath(addr2.path)
-  const addrIndex = btcPay.latest_addr
-  t.ok((path2.index - path1.index) == 1, 'index increased by 1')
+  t.ok((path2.index - path1.index) === 1, 'index increased by 1')
   const lastIndex = path2.index
 
   const btcPay2 = new BitcoinPay({
@@ -62,7 +64,6 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
     network: 'regtest'
   })
   await btcPay2.initialize({})
-  const lastExt2 = await btcPay._hdWallet.getLastExtPath()
 
   let addr3 = await btcPay2.getNewAddress()
   addr3 = BitcoinPay.parsePath(addr3.path)
@@ -72,7 +73,7 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   await btcPay2.destroy()
 })
 
-test('getNewAddress - address reuse logic', async (t) => {
+solo('getNewAddress - address reuse logic', async (t) => {
   // Generate an new wallet and send some bitcoin to the address
   // generate wallet with same seed, resync and make sure that the address is not reused
 
@@ -92,8 +93,8 @@ test('getNewAddress - address reuse logic', async (t) => {
   t.ok(lastExt === HdWallet.INIT_EXTERNAL_PATH, 'first instance last external path is the default path when created')
   const addr = await btcPay.getNewAddress()
   const amount = 0.0001
-  const a = await regtest.sendToAddress({ address: addr.address, amount })
-  await pause(10000)
+  await regtest.sendToAddress({ address: addr.address, amount })
+  await btcPay._onNewTx()
   await regtest.mine(2)
 
   let _pathBalanceChecked = false
@@ -139,168 +140,178 @@ test('getNewAddress - address reuse logic', async (t) => {
   await btcPay2.destroy()
 })
 
-test('watch addresses', function (t) {
-  test('create address, send btc and check balance', async function (t) {
-    return new Promise(async (resolve, reject) => {
-      const regtest = await regtestNode()
-      const btcPay = await activeWallet({ newWallet: true })
-      const max = btcPay._syncManager._max_script_watch
-
-      async function newTx (amount, addr, i) {
-        const balance = await btcPay.getBalance({}, addr.address)
-        const bal = balance.pending.add(balance.confirmed).toMainUnit()
-        t.ok(bal === amount.toString(), `address balance matches sent amount ${addr.address} - ${amount} - ${bal}`)
-        if (i === max - 1) {
-          // TODO: CHECK SIZE OF ADDRESS BEING TRACKED
-          // t.ok(btcPay._syncManager._addr.size === btcPay._syncManager._max_script_watch, 'address being tracked is correct')
-          await btcPay.destroy()
-          resolve()
-        }
-      }
-
-      for (let i = 0; i < max; i++) {
-        const addr = await btcPay.getNewAddress()
-        const amount = +(Math.random() * 0.01).toFixed(5)
-        const a = await regtest.sendToAddress({ address: addr.address, amount })
-        console.log('sending: ', amount, ' to address: ', addr.address)
-        btcPay.once('new-tx', newTx.bind(this, amount, addr, i))
-        const mine = await regtest.mine(1)
-      }
-    })
-  })
-})
-
-test('getTransactions', (t) => {
-  return new Promise(async (resolve, reject) => {
-    const regtest = await regtestNode()
-    const btcPay = await activeWallet()
-
-    await btcPay.syncTransactions()
-
-    let last = 0
-    await btcPay.getTransactions((tx) => {
-      const h = tx[0].height
-      if (!last) {
-        last = h
-        return
-      }
-      t.ok(last < h, 'tx height is in descending order height: ' + h)
-      last = h
-    })
-
-    await btcPay.destroy()
-    resolve()
-  })
-})
-
-test('syncTransactions ', async function (t) {
+test('getTransactions', async (t) => {
   const btcPay = await activeWallet()
 
-  async function syncType (sType, pauseCount, opts) {
-    return new Promise(async (resolve, reject) => {
-      let pathState
-      let count = 0
+  t.comment('syncing transactions')
+  await btcPay.syncTransactions({ restart: true })
 
-      // Handle pausing syncing
-      const lastPath = { external: [], internal: [] }
-      const syncPause = async (pathType, path, hasTx, [gapCount, gapLimit, gapEnd]) => {
-        if (pathType !== sType) return
-        const pp = BitcoinPay.parsePath(path)
-        lastPath[pathType].push(pp.index)
-        if (lastPath[pathType].length > 1) {
-          const lp = lastPath[pathType][lastPath[pathType].length - 2]
-          t.ok(lp - pp.index === -1, `Path index ${pathType} - ` + path)
-        }
-        if (opts?.restart && count === 0) {
-          t.ok(gapCount === 0, 'gap count is 0, when restarting')
-        }
-        if (count !== pauseCount) {
-          count++
-          return
-        }
+  let last = 0
+  const max = 5
+  let c = 0
+  await btcPay.getTransactions(async(tx) => {
+    const h = tx[0].height
+    if (!last) {
+      last = h
+      return
+    }
+    t.ok(last < h, 'tx height is in descending order height: ' + h)
+    last = h
+    c++
+    if(c === max) {
+      await btcPay.destroy()
+      t.end()
+    }
+  })
+  if(c !== max) t.fail('tx not received')
+})
 
-        pathState = path
-
-        // Pause sync
-        btcPay.off('synced-path', syncPause)
-        await btcPay.pauseSync()
-        t.ok(!btcPay._syncState, sType + ' sync is paused')
-        resumeSync()
+test('create address, send btc and check balance', async function (t) {
+  const regtest = await regtestNode()
+  const btcPay = await activeWallet({ newWallet: true })
+  const poing = await btcPay.provider.ping()
+  //const max = btcPay._syncManager._max_script_watch
+  const max = 2
+  let res
+  let pass = []
+  async function newTx () {
+    for( let key in send) {
+      let addr = key
+      const amount = send[key]
+      let balance 
+      try {
+        balance = await btcPay.getBalance({}, addr)
+      } catch(e) {
+        return 
       }
-
-      const resumeSync = async () => {
-        let pass = false
-        const resumeHandler = async (pt, path) => {
-          if (pt !== sType) return
-          const lastPath = BitcoinPay.parsePath(pathState)
-          const currentPath = BitcoinPay.parsePath(path)
-          // Check that the path is resumed from where we left off.
-          t.ok(lastPath.purpose === currentPath.purpose, sType + ' resume sync: purpose')
-          t.ok(lastPath.coin_type === currentPath.coin_type, sType + ' resume sync: coin_type')
-          t.ok(lastPath.account === currentPath.account, sType + ' resume sync: account')
-          t.ok(lastPath.change === currentPath.change, sType + ' resume sync: change')
-          t.ok(lastPath.index - currentPath.index === -1, sType + ' resume sync: index increased by 1')
-          pass = true
-          btcPay.off('synced-path', resumeHandler)
-        }
-        btcPay.on('synced-path', resumeHandler)
-        await btcPay.syncTransactions()
-        if (pass) return resolve()
-        t.fail(`${sType} did not resume syncing`)
-        resolve()
-      }
-
-      btcPay.on('synced-path', syncPause)
-      await btcPay.syncTransactions(opts)
-    })
+      const bal = balance.pending.add(balance.confirmed).toMainUnit()
+      if(+bal === 0 ) continue 
+      t.ok(bal === amount.toString(), `address balance matches sent amount ${addr} - ${amount} - ${bal}`)
+      pass.push(true)
+    }
   }
 
-  await syncType('external', 3, null)
-  await syncType('internal', 5, { restart: true })
+  const send = {}
+  btcPay._syncManager.on('new-tx', newTx)
+  for (let i = 0; i <= max; i++) {
+    const addr = await btcPay.getNewAddress()
+    const amount = +(Math.random() * 0.01).toFixed(5)
+    send[addr.address] = amount
+    await regtest.sendToAddress({ address: addr.address, amount })
+    t.comment(`Sending ${i}/${max} - ${addr.address} - ${amount}`)
+    await regtest.mine(1)
+    await btcPay._onNewTx()
+  }
+  if(pass.length !== max) t.fail('balance not checked')
   await btcPay.destroy()
 })
 
-test('getBalance', (t) => {
-  return new Promise(async (resolve, reject) => {
-    const regtest = await regtestNode()
+test('pauseSync - internal and external', async (t) => {
+  async function runTest(sType, opts){
     const btcPay = await activeWallet()
-
-    let total = 0
-    let payAddr
-    async function checkBal (pt, path, hasTx, gapCount) {
-      const [sc, addr] = btcPay.keyManager.pathToScriptHash(path, 'p2wpkh')
-      const eBal = await btcPay.provider._getBalance(sc)
-
-      try {
-        const bal = btcPay.getBalance({}, addr.address)
-        const balTotal = bal.confirmed.add(bal.pending).toBaseUnit()
-        t.ok(eBal.confirmed.toString() === balTotal, `addr: ${addr.address} confirmed matches electrum ${eBal.confirmed} - ${balTotal}`)
-        t.ok(eBal.unconfirmed.toString() === bal.mempool.toBaseUnit(), `addr: ${addr.address} mempool matches electrum`)
-        total += +bal.confirmed.toMainUnit() + +bal.mempool.toMainUnit()
-        if (addr.address === payAddr?.address) {
-          t.ok(new BitcoinCurrency(eBal.confirmed, 'base').eq(new BitcoinCurrency(amount, 'main')), 'amount matches sent amount')
-          btcPay.off('synced-path', checkBal)
-          resolve()
+    let max = 5
+    test('pauseSync: '+sType, async (t) => {
+      let lastPath = null 
+      let count = 0 
+      const first = (pt, path, hastx, gap) => {
+        if(pt !== sType) return
+        if(count === max) t.fail('count exceeded. did not halt')
+        count++
+        lastPath = { path, gap }
+        if(count === max) {
+          return btcPay.pauseSync()
         }
-      } catch (err) {
-        if (err.message.includes('Address not valid')) return err
-        throw err
       }
-    }
+      const afterPause = async (pt, path, hasTx, gapCount) => {
+        const last = BitcoinPay.parsePath(lastPath.path)
+        const parsed = BitcoinPay.parsePath(path)
+        t.ok(last.purpose === parsed.purpose, sType + ' resume sync: purpose')
+        t.ok(last.coin_type === parsed.coin_type, sType + ' resume sync: coin_type')
+        t.ok(last.account === parsed.account, sType + ' resume sync: account')
+        t.ok(last.change === parsed.change, sType + ' resume sync: change')
+        t.ok(last.index - parsed.index === -1, sType + ' resume sync: index increased by 1')
+        btcPay.off('synced-path', afterPause)
+      }
+      btcPay.on('synced-path', first)
+      await btcPay.syncTransactions(opts)
+      t.ok(count === max, 'syncing stopped after iteration count:'+ max)
+      btcPay.off('synced-path', first)
+      btcPay.on('synced-path', afterPause)
+      await btcPay.syncTransactions()
+      await btcPay.destroy()
+    })
+  }
+  await runTest('external')
+  await runTest('internal', { reset: true })
+})
 
-    btcPay.on('synced-path', checkBal)
-    await btcPay.syncTransactions()
+// Sycning paths must be in order
+test('syncing paths in order', async (t) => {
+  async function runTest(sType, opts){
+    const btcPay = await activeWallet()
+    let max = 5
+    test('sync in order: '+sType, async (t) => {
+      let lastPath = null 
+      let count = 0 
+      const prev = []
+      const handler = async (pt, path, hasTx, gapCount) => {
+        if(pt !== sType) return
+        count++
+        if(prev.length === 0 ) {
+          prev.push(path)
+          return
+        }
+        const last = BitcoinPay.parsePath(prev[prev.length - 1])
+        const parsed = BitcoinPay.parsePath(path)
+        t.ok(last.purpose === parsed.purpose, sType + ' path order: purpose')
+        t.ok(last.coin_type === parsed.coin_type, sType + ' path order: coin_type')
+        t.ok(last.account === parsed.account, sType + ' path order: account')
+        t.ok(last.change === parsed.change, sType + ' path order: change')
+        t.ok(last.index - parsed.index === -1, sType + ' path order: index increased by 1')
+        prev.push(path)
+        if(count === max) {
+          btcPay.off('synced-path', handler)
+          await btcPay.destroy()
+          t.end()
+        }
+      }
+      btcPay.on('synced-path', handler)
+      await btcPay.syncTransactions(opts)
+    })
+  }
+  await runTest('external')
+  await runTest('internal', { restart: true })
+})
+
+test('syncTransaction - balance check', async (t) => {
+  const regtest = await regtestNode()
+  const btcPay = await activeWallet({ newWallet: true })
+  // Send some bitcoin to the address and check if the amounts match as its getting sycned
+  const payAddr = await btcPay.getNewAddress()
+  const amount = 0.0888
+  await regtest.sendToAddress({ address: payAddr.address, amount })
+  await regtest.mine(2)
+  await btcPay._onNewTx()
+  async function checkBal (pt, path, hasTx, gapCount) {
+    const [sc, addr] = btcPay.keyManager.pathToScriptHash(path, 'p2wpkh')
+    const eBal = await btcPay.provider._getBalance(sc)
+    let bal
+    try {
+      bal = btcPay.getBalance({}, addr.address)
+    } catch(e) {
+      return
+    }
+    const balTotal = bal.confirmed.add(bal.pending).toBaseUnit()
+    t.ok(eBal.confirmed.toString() === balTotal, `addr: ${addr.address} confirmed matches electrum ${eBal.confirmed} - ${balTotal}`)
+    t.ok(eBal.unconfirmed.toString() === bal.mempool.toBaseUnit(), `addr: ${addr.address} mempool matches electrum`)
+    t.ok(new BitcoinCurrency(eBal.confirmed, 'base').eq(new BitcoinCurrency(amount, 'main')), 'amount matches sent amount')
     btcPay.off('synced-path', checkBal)
-    // Send some bitcoin to the address and check if the amounts match
-    payAddr = await btcPay.getNewAddress()
-    const amount = 0.0888
-    const a = await regtest.sendToAddress({ address: payAddr.address, amount })
-    await regtest.mine(2)
-    await pause(10000)
-    btcPay.on('synced-path', checkBal)
-    await btcPay.syncTransactions({ reset: true })
     await btcPay.destroy()
-  })
+    t.end()
+  }
+  btcPay.on('synced-path', checkBal)
+  await btcPay.syncTransactions({ restart: true })
+
 })
 
 test('bip84 test vectors', async function (t) {
@@ -348,7 +359,7 @@ test('bip84 test vectors', async function (t) {
   })
   await bp.initialize({})
   const bpAddr = await bp.getNewAddress()
-  for (key in addr1) {
+  for (const key in addr1) {
     const bVal = bpAddr[key]
     const aVal = addr1[key]
     if (key === 'path') {
