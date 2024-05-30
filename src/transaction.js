@@ -61,7 +61,7 @@ class Transaction extends EventEmitter {
 
     if(change < 0) {
       await this._syncManager.unlockUtxo(false)
-      throw new Error('Negative change value calculated: '+change)
+      throw new Error('Negative change value calculated, insufficient funds or not enough utxo'+change)
     }
 
     psbt.addOutput({

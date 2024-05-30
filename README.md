@@ -111,8 +111,7 @@ await btcPay.destroy()
 
 
 ### TODO:
-[] Fee estimation. 
-[] Transaction history query 
+[] get 1 transaction
 [] Handle block reorg
 [] Additional tests for: transaction creation and balance checking. 
 

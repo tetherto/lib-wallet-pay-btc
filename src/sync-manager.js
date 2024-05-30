@@ -3,61 +3,7 @@ const { EventEmitter } = require('events')
 const HdWallet = require('./hdwallet.js')
 const { Bitcoin } = require('../../wallet/src/currency.js')
 const UnspentStore = require('./unspent-store.js')
-
-class Balance {
-
-  constructor(confirmed, pending, mempool) {
-    this.confirmed = new Bitcoin(confirmed, 'main')
-    this.pending = new Bitcoin(pending,'main')
-    this.mempool = new Bitcoin(mempool, 'main')
-  }
-}
-
-class AddressManager {
-
-  constructor(config) {
-    this.store = config.store.newInstance({ name : 'addr'})
-  }
-
-  async init() {
-    await this.store.init()
-  }
-
-  _newAddr() {
-    return {
-      // @desc total balances for VIN and VOUTS
-      in : new Balance(0, 0, 0), 
-      out : new Balance(0 ,0, 0),
-      // @desc: transaction fee totals
-      fee: new Balance(0,0,0),
-      // @desc: txid of processsed vins and vouts
-      intxid : [],
-      outtxid : [],
-    } 
-  }
-
-  async has(addr) {
-    return !! this.get(addr)
-  }
-
-  async clear() {
-    this.store.clear()
-  }
-
-  async newAddress(addr) {
-    const data = this._newAddr()
-    await this.store.put(addr, data)
-    return data
-  }
-
-  set(addr, data) {
-    return this.store.put(addr, data)
-  }
-
-  get(addr) {
-    return this.store.get(addr)
-  }
-}
+const { AddressManager, Balance }  = require('./address-manager.js')
 
 
 class SyncManager extends EventEmitter {
@@ -173,6 +119,8 @@ class SyncManager extends EventEmitter {
     if(!await _addr.has(addr.address)) {
       await _addr.newAddress(addr.address)
     }
+
+    await _addr.storeTxHistory(txHistory)
 
     await Promise.all(txHistory.map(async (tx) => {
       const txState = this._getTxState(tx)
@@ -310,8 +258,8 @@ class SyncManager extends EventEmitter {
     return this._unspent.getUtxoForAmount(amount, strategy)
   }
 
-  getTransactions(opts) {
-    return this._syncManager.getTransactions(opts)
+  getTransactions(fn) {
+    return this._addr.getTransactions(fn)
   }
 }
 

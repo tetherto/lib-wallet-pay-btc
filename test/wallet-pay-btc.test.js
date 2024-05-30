@@ -178,6 +178,30 @@ test('watch addresses', function(t) {
 
 })
 
+solo('getTransactions', (t) => {
+  return new Promise(async (resolve, reject) => { 
+    const regtest = await regtestNode()
+    const btcPay = await activeWallet()
+
+    await btcPay.syncTransactions()
+
+    let last = 0
+    await btcPay.getTransactions((tx) => {
+      const h = tx[0].height
+      if(!last) {
+        last = h
+        return 
+      }
+      t.ok(last < h, 'tx height is in descending order height: '+h)
+      last = h
+    })
+
+    await btcPay.destroy()
+    resolve()
+  })
+
+})
+
 test('syncTransactions ', async function(t) {
   const btcPay = await activeWallet()
 
@@ -247,7 +271,7 @@ test('syncTransactions ', async function(t) {
 })
 
 
-solo('getBalance', (t) => {
+test('getBalance', (t) => {
   return new Promise(async (resolve, reject) => {
 
     const regtest = await regtestNode()
