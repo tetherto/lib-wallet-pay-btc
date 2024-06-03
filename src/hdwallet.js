@@ -24,7 +24,7 @@ class HdWallet {
   static INIT_INTERNAL_PATH = INIT_INTERNAL_PATH
 
   async init () {
-    const currentPath = this.store.get('current_internal_path')
+    const currentPath = await this.store.get('current_internal_path')
     if (!currentPath) {
       await this.store.put('current_internal_path', INIT_INTERNAL_PATH)
       await this.store.put('current_external_path', INIT_EXTERNAL_PATH)

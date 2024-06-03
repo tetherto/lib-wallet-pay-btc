@@ -57,8 +57,16 @@ class AddressManager {
     return this.store.put(addr, data)
   }
 
-  get (addr) {
-    return this.store.get(addr)
+  async get (addr) {
+    const data = await this.store.get(addr)
+    if(!data) return null
+    return {
+      in : new Balance(data.in.confirmed, data.in.pending, data.in.mempool),
+      out : new Balance(data.out.confirmed, data.out.pending, data.out.mempool),
+      fee : new Balance(data.fee.confirmed, data.fee.pending, data.fee.mempool),
+      intxid: data.intxid,
+      outtxid: data.outtxid
+    }
   }
 
   async _setHistoryIndex () {

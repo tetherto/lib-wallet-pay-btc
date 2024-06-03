@@ -31,7 +31,7 @@ class SyncManager extends EventEmitter {
 
   async init () {
     await this._subscribeToScriptHashes()
-    this._total = await this.state.getTotalBalance()
+    this._total = await this._getTotalBal()
     this._addr = new AddressManager({ store: this.store })
     await this._addr.init()
     this._unspent = new UnspentStore({ store: this.store })
@@ -44,7 +44,8 @@ class SyncManager extends EventEmitter {
       out: new Balance(0, 0, 0),
       fee: new Balance(0, 0, 0)
     }
-    this._total = await this.state.setTotalBalance(total)
+    await this.state.setTotalBalance(total)
+    this._total = total
     this.resumeSync()
     this.state.resetSyncState()
   }
@@ -53,6 +54,19 @@ class SyncManager extends EventEmitter {
     this._addr && await this._addr.close()
     this._unspent && await this._unspent.close()
   }
+
+  async _getTotalBal() {
+    const total = await this.state.getTotalBalance()
+    if (!total) {
+      return this._total
+    }
+    return {
+      in: new Balance(total.in.confirmed, total.in.pending, total.in.mempool),
+      out: new Balance(total.out.confirmed, total.out.pending, total.out.mempool),
+      fee: new Balance(total.fee.confirmed, total.fee.pending, total.fee.mempool)
+    }
+  }
+    
 
   async _subscribeToScriptHashes () {
     const { state, provider } = this
@@ -114,7 +128,9 @@ class SyncManager extends EventEmitter {
   async _processHistory (addr, txHistory) {
     const { _addr } = this
 
-    if (!await _addr.has(addr.address)) {
+    const dbAddr = await _addr.get(addr.address)
+
+    if (!dbAddr) {
       await _addr.newAddress(addr.address)
     }
 
@@ -187,18 +203,20 @@ class SyncManager extends EventEmitter {
 
     if (this._halt) {
       this._isSyncing = false
+      this.emit('sync-end')
       return
     }
     await this._unspent.process()
     this._isSyncing = false
+    this.emit('sync-end')
   }
 
-  getBalance (addr) {
+  async getBalance (addr) {
     let total
     if (!addr) {
       total = this._total
     } else {
-      total = this._addr.get(addr)
+      total = await this._addr.get(addr)
       if (!total) throw new Error('Address not valid or not processed for balance ' + addr)
     }
     const totalBalance = new Balance(0, 0, 0)
@@ -221,7 +239,7 @@ class SyncManager extends EventEmitter {
     return Promise.all(utxoList.map(async (utxo) => {
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
-      const bal = _addr.get(utxo.address)
+      const bal = await _addr.get(utxo.address)
       if (utxo.address !== addr.address || !bal) return
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
 

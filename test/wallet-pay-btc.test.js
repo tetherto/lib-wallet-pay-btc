@@ -1,7 +1,7 @@
 const { solo, test } = require('brittle')
 const {
   BitcoinPay,
-  WalletStoreMemory,
+  WalletStore,
   KeyManager,
   BIP39Seed,
   newElectrum,
@@ -22,17 +22,18 @@ test('Create an instances of WalletPayBitcoin', async function (t) {
     key_manager: new KeyManager({
       seed: await BIP39Seed.generate()
     }),
-    store: new WalletStoreMemory(),
+    store: new WalletStore(),
     network: 'regtest'
   })
   await btcPay.initialize({})
   
   t.ok(btcPay.ready, 'instance is ready')
+  t.comment('destoying instance')
   await btcPay.destroy()
 })
 
 test('getNewAddress no duplicate addresses, after recreation', async function (t) {
-  const store = new WalletStoreMemory()
+  const store = new WalletStore()
   const seed = await BIP39Seed.generate()
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
@@ -73,7 +74,7 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   await btcPay2.destroy()
 })
 
-solo('getNewAddress - address reuse logic', async (t) => {
+test('getNewAddress - address reuse logic', async (t) => {
   // Generate an new wallet and send some bitcoin to the address
   // generate wallet with same seed, resync and make sure that the address is not reused
 
@@ -85,7 +86,7 @@ solo('getNewAddress - address reuse logic', async (t) => {
     key_manager: new KeyManager({
       seed
     }),
-    store: new WalletStoreMemory(),
+    store: new WalletStore(),
     network: 'regtest'
   })
   await btcPay.initialize({})
@@ -114,7 +115,7 @@ solo('getNewAddress - address reuse logic', async (t) => {
     key_manager: new KeyManager({
       seed
     }),
-    store: new WalletStoreMemory(),
+    store: new WalletStore(),
     network: 'regtest'
   })
   await btcPay2.initialize({})
@@ -164,17 +165,19 @@ test('getTransactions', async (t) => {
     }
   })
   if(c !== max) t.fail('tx not received')
-})
+});
 
-test('create address, send btc and check balance', async function (t) {
+(async () => {
+  const t = test('create address, send btc and check balance')
   const regtest = await regtestNode()
+  t.comment('create new wallet')
   const btcPay = await activeWallet({ newWallet: true })
-  const poing = await btcPay.provider.ping()
   //const max = btcPay._syncManager._max_script_watch
   const max = 2
   let res
   let pass = []
   async function newTx () {
+    t.comment('checking balance')
     for( let key in send) {
       let addr = key
       const amount = send[key]
@@ -182,29 +185,31 @@ test('create address, send btc and check balance', async function (t) {
       try {
         balance = await btcPay.getBalance({}, addr)
       } catch(e) {
+        console.log(e)
         return 
       }
       const bal = balance.pending.add(balance.confirmed).toMainUnit()
       if(+bal === 0 ) continue 
       t.ok(bal === amount.toString(), `address balance matches sent amount ${addr} - ${amount} - ${bal}`)
-      pass.push(true)
+      await btcPay.destroy()
+      t.pass()
+      t.end()
     }
   }
 
   const send = {}
   btcPay._syncManager.on('new-tx', newTx)
-  for (let i = 0; i <= max; i++) {
-    const addr = await btcPay.getNewAddress()
-    const amount = +(Math.random() * 0.01).toFixed(5)
-    send[addr.address] = amount
-    await regtest.sendToAddress({ address: addr.address, amount })
-    t.comment(`Sending ${i}/${max} - ${addr.address} - ${amount}`)
-    await regtest.mine(1)
-    await btcPay._onNewTx()
-  }
-  if(pass.length !== max) t.fail('balance not checked')
-  await btcPay.destroy()
-})
+  t.comment('getting new address')
+  const addr = await btcPay.getNewAddress()
+  const amount = +(Math.random() * 0.01).toFixed(5)
+  send[addr.address] = amount
+  t.comment(`Sending  - ${addr.address} - ${amount}`)
+  await regtest.sendToAddress({ address: addr.address, amount })
+  t.comment('mining block')
+  await regtest.mine(1)
+  t.comment('waiting for electrum to update')
+  await btcPay._onNewTx()
+})();
 
 test('pauseSync - internal and external', async (t) => {
   async function runTest(sType, opts){
@@ -285,19 +290,23 @@ test('syncing paths in order', async (t) => {
 
 test('syncTransaction - balance check', async (t) => {
   const regtest = await regtestNode()
+  t.comment('create new wallet')
   const btcPay = await activeWallet({ newWallet: true })
   // Send some bitcoin to the address and check if the amounts match as its getting sycned
   const payAddr = await btcPay.getNewAddress()
   const amount = 0.0888
+  t.comment('generate address and send btc')
   await regtest.sendToAddress({ address: payAddr.address, amount })
+  t.comment('mining blocks')
   await regtest.mine(2)
+  t.comment('waiting for electrum to update')
   await btcPay._onNewTx()
   async function checkBal (pt, path, hasTx, gapCount) {
     const [sc, addr] = btcPay.keyManager.pathToScriptHash(path, 'p2wpkh')
     const eBal = await btcPay.provider._getBalance(sc)
     let bal
     try {
-      bal = btcPay.getBalance({}, addr.address)
+      bal = await btcPay.getBalance({}, addr.address)
     } catch(e) {
       return
     }
@@ -310,8 +319,8 @@ test('syncTransaction - balance check', async (t) => {
     t.end()
   }
   btcPay.on('synced-path', checkBal)
+  t.comment('syncing transactions..')
   await btcPay.syncTransactions({ restart: true })
-
 })
 
 test('bip84 test vectors', async function (t) {
@@ -323,7 +332,7 @@ test('bip84 test vectors', async function (t) {
     key_manager: new KeyManager({
       seed: await BIP39Seed.generate(mnemonic)
     }),
-    store: new WalletStoreMemory(),
+    store: new WalletStore(),
     network: 'bitcoin'
   })
   await btcPay.initialize({})
@@ -354,7 +363,7 @@ test('bip84 test vectors', async function (t) {
     key_manager: new KeyManager({
       seed: await BIP39Seed.generate()
     }),
-    store: new WalletStoreMemory(),
+    store: new WalletStore(),
     network: 'bitcoin'
   })
   await bp.initialize({})

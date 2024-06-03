@@ -19,7 +19,7 @@ class RequestCache {
     this._cache_expiry = config.cache_timeout || 300000 // 5min
     this._max_cache_size = config.max_cache_size || 10000
     this._cache_size = 0
-    this._startCacheTimer()
+    this._closing = false
   }
 
   async stop () {
@@ -35,8 +35,8 @@ class RequestCache {
     }, this._cache_interval)
   }
 
-  _getCacheIndex () {
-    return this.store.get('cache_index') || []
+  async _getCacheIndex () {
+    return await (this.store.get('cache_index')) || []
   }
 
   async _removeOldest () {
@@ -58,8 +58,8 @@ class RequestCache {
     }
     const index = await this._getCacheIndex()
     index.push(key)
-    await this.store.put('cache_index', data)
-    this._cache_size = index.length
+    await this.store.put('cache_index', index)
+    this.size = index.length
     return this.store.put(key, data)
   }
 
@@ -67,6 +67,16 @@ class RequestCache {
     const data = await this.store.get(key)
     return data ? data[0] : null
   }
+
+  get size() {
+    return this._cache_size
+  }
+
+  set size (val) {
+    return null
+  }
+
+
 }
 
 class Electrum extends EventEmitter {
@@ -198,16 +208,13 @@ class Electrum extends EventEmitter {
   }
 
   async getAddressHistory (scriptHash) {
-    let txData
-    try {
-      const history = await this._makeRequest('blockchain.scripthash.get_history', [scriptHash])
-      txData = await Promise.all(history.map(async (tx, index) => {
-        const txData = await this.getTransaction(tx.tx_hash, scriptHash)
-        txData.height = history[index].height
-        return txData
-      }))
-    } catch (err) {
-      return { error: err }
+    const history = await this._makeRequest('blockchain.scripthash.get_history', [scriptHash])
+    const txData = []
+    for (const index in history) {
+      const tx = history[index]
+      const td = await this.getTransaction(tx.tx_hash, scriptHash)
+      td.height = tx.height
+      txData.push(td)
     }
     return txData
   }
@@ -247,10 +254,7 @@ class Electrum extends EventEmitter {
       const cacheValue = await cache.get(txid)
       if (cacheValue) return cacheValue
       const data = await this._getTransaction(txid)
-      if (cache.size > this._max_cache_size) {
-        cache.delete(cache.keys().next().value)
-      }
-      cache.set(txid, data)
+      await cache.set(txid, data)
       return data
     }
 

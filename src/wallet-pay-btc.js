@@ -56,7 +56,7 @@ class StateDb {
   }
 
   async getWatchedScriptHashes (addrType) {
-    return this.store.get('watched_script_hashes_' + addrType) || []
+    return await(this.store.get('watched_script_hashes_' + addrType)) || []
   }
 
   async setTotalBalance (balance) {
@@ -74,22 +74,19 @@ class WalletPayBitcoin extends WalletPay {
 
   constructor (config) {
     super(config)
-    if (!config.network) throw new WalletPayError('Network is required')
-
-    this.network = config.network
     if (!WalletPayBitcoin.networks.includes(this.network)) throw new WalletPayError('Invalid network')
+    
+    this._hdWallet = new HdWallet({ 
+      store: this.store.newInstance({ name: 'hdwallet' }) 
+    })
 
     this.state = new StateDb({
       store: this.store.newInstance({ name: 'state' })
     })
 
-    this._hdWallet = new HdWallet({ store: this.store.newInstance({ name: 'hdwallet' }) })
-    this.provider = config.provider
-    this.keyManager.setNetwork(this.network)
     this.gapLimit = config.gapLimit || 20
     this.min_block_confirm = config.min_block_confirm || 1
     this.latest_block = 0
-
     this._syncManager = new SyncManager({
       state: this.state,
       gapLimit: this.gapLimit,
@@ -114,8 +111,7 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   async initialize (wallet) {
-    if (this.ready) return Promise.resolve()
-
+    if (this.ready) return 
     super.initialize(wallet)
 
     await this.state.init()
@@ -150,7 +146,7 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   async getNewAddress (config = {}) {
-    let path = this._hdWallet.getLastExtPath()
+    let path = await this._hdWallet.getLastExtPath()
     const addrType = HdWallet.getAddressType(path)
     const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
     path = HdWallet.bumpIndex(path)
@@ -160,7 +156,7 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   async _getInternalAddress () {
-    let path = this._hdWallet.getLastIntPath()
+    let path = await this._hdWallet.getLastIntPath()
     const addrType = HdWallet.getAddressType(path)
     const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
     path = HdWallet.bumpIndex(path)
@@ -199,10 +195,10 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   // Pause syncing transactions from electrum
-  async pauseSync () {
+  async pauseSync (opts) {
     return new Promise((resolve) => {
       if (!this._syncManager._isSyncing) return resolve()
-      this.once('sync-end', () => resolve())
+      this._syncManager.once('sync-end', () => resolve())
       this._syncManager.stopSync()
     })
   }
@@ -225,7 +221,7 @@ class WalletPayBitcoin extends WalletPay {
     return await tx.send(outgoing)
   }
 
-  isValidAddress (address) {
+  isValidAddress (opts, address) {
     return this._makeRequest('blockchain.address.get_balance', [address])
   }
 

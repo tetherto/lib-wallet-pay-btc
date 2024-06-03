@@ -1,5 +1,5 @@
 const BitcoinPay = require('../src/wallet-pay-btc.js')
-const { WalletStoreMemory } = require('../../wallet-store/')
+const { WalletStoreHyperbee } = require('../../wallet-store/')
 const KeyManager = require('../src/wallet-key-btc.js')
 const BIP39Seed = require('../../wallet-seed-bip39/src/wallet-seed-bip39.js')
 const Electrum = require('../src/electrum.js')
@@ -10,15 +10,19 @@ const BitcoinCurr = require('../../wallet/src/currency.js')
 async function newElectrum (config = {}) {
   config.host = 'localhost' || config.host
   config.port = '8001' || config.port
-  config.store = config.store || _store
+  config.store = config.store || newStore()
   let e
   try {
     e = new Electrum(config)
     await e.connect()
-  } catch (e) {
-    console.log('Error connecting to electrum', e)
+  } catch (err) {
+    console.log('Error connecting to electrum', err)
   }
   return e
+}
+
+function newStore () {
+  return new WalletStoreHyperbee()
 }
 
 let _regtest
@@ -31,8 +35,9 @@ async function regtestNode (opts = {}) {
   return _regtest
 }
 
-const _store = new WalletStoreMemory()
+
 async function activeWallet (config = {}) {
+  const _store = newStore()
   let seed
 
   if (config.newWallet) {
@@ -69,7 +74,7 @@ async function pause (ms) {
 
 module.exports = {
   BitcoinPay,
-  WalletStoreMemory,
+  WalletStore: WalletStoreHyperbee,
   KeyManager,
   BIP39Seed,
   Electrum,
