@@ -1,5 +1,5 @@
 const BitcoinPay = require('../src/wallet-pay-btc.js')
-const { WalletStoreHyperbee } = require('wallet-lib-store')
+const { WalletStoreHyperbee } = require('lib-wallet-store')
 const KeyManager = require('../src/wallet-key-btc.js')
 const BIP39Seed = require('wallet-seed-bip39')
 const Electrum = require('../src/electrum.js')
