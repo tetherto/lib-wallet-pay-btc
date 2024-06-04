@@ -11,7 +11,8 @@
     "lib-wallet": "github:rbndg/lib-wallet",
     "lib-wallet-pay-btc": "github:rbndg/lib-wallet-pay-btc",
     "tiny-secp256k1": "2.2.3",
-    "wallet": "github:rbndg/lib-wallet"
+    "wallet": "github:rbndg/lib-wallet",
+    "wallet-seed-bip39": "github:rbndg/lib-wallet-seed-bip39"
   },
   "devDependencies": {
     "brittle": "^3.5.0"
