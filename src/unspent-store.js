@@ -26,12 +26,14 @@ class VinVout {
 
   async entries (cb) {
     return this.store.entries(async (k, v) => {
+      v.value = new Bitcoin(v.value)
       await cb(v, k)
     })
   }
 
   async some (cb) {
     return this.store.some(async (k, v) => {
+      v.value = new Bitcoin(v.value)
       return cb(v)
     })
   }

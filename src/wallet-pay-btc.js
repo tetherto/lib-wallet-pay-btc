@@ -2,6 +2,7 @@ const WalletPay = require('../../wallet-pay/src/wallet-pay.js')
 const Transaction = require('./transaction.js')
 const HdWallet = require('./hdwallet.js')
 const SyncManager = require('./sync-manager.js')
+const Bitcoin = require('../../wallet/src/currency.js').Bitcoin
 
 const WalletPayError = Error
 
@@ -66,6 +67,7 @@ class StateDb {
   async getTotalBalance () {
     return this.store.get('total_balance')
   }
+
 }
 
 class WalletPayBitcoin extends WalletPay {
@@ -76,17 +78,33 @@ class WalletPayBitcoin extends WalletPay {
     super(config)
     if (!WalletPayBitcoin.networks.includes(this.network)) throw new WalletPayError('Invalid network')
     
-    this._hdWallet = new HdWallet({ 
-      store: this.store.newInstance({ name: 'hdwallet' }) 
-    })
-
-    this.state = new StateDb({
-      store: this.store.newInstance({ name: 'state' })
-    })
 
     this.gapLimit = config.gapLimit || 20
     this.min_block_confirm = config.min_block_confirm || 1
-    this.latest_block = 0
+    this.latest_block = 0 
+    this.ready = false
+    this.currency = Bitcoin
+  }
+
+  async destroy () {
+    await this.pauseSync()
+    await this.provider.close()
+    await this.state.store.close()
+    await this._syncManager.close()
+    await this._hdWallet.close()
+    await this.keyManager.close()
+    await this._postDestroy()
+  }
+
+  async initialize (wallet) {
+    if (this.ready) return 
+    await super.initialize(wallet)
+    this._hdWallet = new HdWallet({ 
+      store: this.store.newInstance({ name: 'hdwallet' }) 
+    })
+    this.state = new StateDb({
+      store: this.store.newInstance({ name: 'state' })
+    })
     this._syncManager = new SyncManager({
       state: this.state,
       gapLimit: this.gapLimit,
@@ -98,21 +116,7 @@ class WalletPayBitcoin extends WalletPay {
       minBlockConfirm: this.min_block_confirm,
       store: this.store
     })
-  }
 
-  async destroy () {
-    await this.pauseSync()
-    await this.provider.close()
-    await this.state.store.close()
-    await this._syncManager.close()
-    await this._hdWallet.close()
-    await this.keyManager.close()
-    WalletPayBitcoin.events.forEach((event) => this.removeAllListeners(event))
-  }
-
-  async initialize (wallet) {
-    if (this.ready) return 
-    super.initialize(wallet)
 
     await this.state.init()
     await this._syncManager.init()
@@ -218,7 +222,9 @@ class WalletPayBitcoin extends WalletPay {
       getInternalAddress: this._getInternalAddress.bind(this),
       syncManager: this._syncManager
     })
-    return await tx.send(outgoing)
+    
+    return tx.send(outgoing)
+    
   }
 
   isValidAddress (opts, address) {

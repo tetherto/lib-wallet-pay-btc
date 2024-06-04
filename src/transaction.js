@@ -101,6 +101,7 @@ class Transaction extends EventEmitter {
     const fakeTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr)
     const realTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, fakeTx.vSize)
     realTx.changeAddress = changeAddr
+    await this._syncManager.addSentTx(realTx)
     return realTx
   }
 }

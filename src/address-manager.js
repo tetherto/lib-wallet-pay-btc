@@ -2,8 +2,11 @@ const { Bitcoin } = require('../../wallet/src/currency.js')
 
 class Balance {
   constructor (confirmed, pending, mempool) {
+    // @desc: confirmed balance. Tx that have more than X amount of confirmations 
     this.confirmed = new Bitcoin(confirmed, 'main')
+    // @desc: pending balance. Tx that have less than X amount of confirmations
     this.pending = new Bitcoin(pending, 'main')
+    // @desc: mempool balance. Tx that are in the mempool, 0 confirmations
     this.mempool = new Bitcoin(mempool, 'main')
   }
 }
@@ -12,8 +15,12 @@ const MAX_BLOCK_SIZE = 100
 
 class AddressManager {
   constructor (config) {
+    // @desc: address store that keeps track of balances
     this.store = config.store.newInstance({ name: 'addr' })
+    // @desc: transaction history store that holds tx details from eletrum
     this.history = config.store.newInstance({ name: 'tx-history' })
+    // @desc: Transactions that has been broadcasted
+    this.outgoings = config.store.newInstance({ name: 'broadcasted' })
   }
 
   async init () {
@@ -88,10 +95,19 @@ class AddressManager {
     return this.history.put('index', index)
   }
 
+  /**
+  * @desc Get transaction history by block height
+  */ 
   _getTxHeight (height) {
     return this.history.get(height)
   }
 
+  /**
+  * @desc Remove transaction from mempool store
+  *       Mempool transactions have 0 height. 
+  *       When they are confirmed they must be removed to prevent duplicate tx being kept in store
+  * @param {String} txid - transaction id
+  */
   async _removeFromMempool (txid) {
     const mp = await this.history.get('i:' + 0) || []
     for (const x in mp) {
@@ -103,7 +119,7 @@ class AddressManager {
   }
 
   /**
-  * @desc Store transaction history in a self balancing btree
+  * @desc Store transaction history in history store
   **/
   storeTxHistory (history) {
     return Promise.all(history.map(async (tx) => {
@@ -121,11 +137,24 @@ class AddressManager {
     }))
   }
 
+  /**
+  * @desc et transaction history from history store
+  * @param {function} fn callback function to process each transaction
+  * @returns {Promise}
+  */
   getTransactions (fn) {
     return this.history.entries(async (key, value) => {
       if (key.indexOf('i:') !== 0) return
       return await fn(value)
     })
+  }
+
+  addSentTx (tx) {
+    return this.outgoings.put(tx.txid, tx)
+  }
+
+  getSentTx(txid) {
+    return this.outgoings.get(txid)
   }
 }
 

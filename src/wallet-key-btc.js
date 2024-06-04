@@ -8,11 +8,16 @@ const bitcoin = require('bitcoinjs-lib')
 
 class WalletKeyBitcoin {
   constructor (config) {
-    this.seed = config.seed
-    this.bip32 = bip32.fromSeed(this.seed.seed, bitcoin.networks.bitcoin)
-    // this.bip32 = bip32.fromBase58(bip32.fromSeed(this.seed.seed).neutered().toBase58(), this.network)
+    if(config.seed) {
+      this.seed = config.seed
+      this.bip32 = bip32.fromSeed(this.seed.seed, bitcoin.networks.bitcoin)
+      this.ready = true
+    } else {
+      this.ready = false
+    }
   }
-
+  
+  // Custom inspect method
   close() {
     this.seed = null 
     this.bip32 = null
@@ -21,6 +26,15 @@ class WalletKeyBitcoin {
   setNetwork (network) {
     if (network === 'mainnet') network = 'bitcoin'
     this.network = bitcoin.networks[network]
+  }
+
+  setSeed(seed) {
+    if(this.seed) throw new Error('Seed already set')
+    if(!this.network) throw new Error('Network not set')
+    if(!seed) throw new Error('Seed is required')
+    this.seed = seed
+    this.bip32 = bip32.fromSeed(this.seed.seed, this.network)
+    this.ready = true
   }
 
   /**
