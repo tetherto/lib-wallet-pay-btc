@@ -1,7 +1,7 @@
 'use strict'
 const { EventEmitter } = require('events')
 const HdWallet = require('./hdwallet.js')
-const { Bitcoin } = require('../../wallet/src/currency.js')
+const Bitcoin = require('./currency')
 const UnspentStore = require('./unspent-store.js')
 const { AddressManager, Balance } = require('./address-manager.js')
 
@@ -53,6 +53,14 @@ class SyncManager extends EventEmitter {
   async close () {
     this._addr && await this._addr.close()
     this._unspent && await this._unspent.close()
+  }
+
+  addSentTx (tx) {
+    return this._addr.addSentTx(tx)
+  }
+
+  getSentTx (txid) {
+    return this._addr.getSentTx(txid)
   }
 
   async _getTotalBal() {

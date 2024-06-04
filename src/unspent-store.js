@@ -1,4 +1,4 @@
-const { Bitcoin } = require('../../wallet/src/currency.js')
+const Bitcoin = require('./currency')
 
 class VinVout {
   constructor (config, vtype) {

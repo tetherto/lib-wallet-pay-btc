@@ -1,6 +1,6 @@
 const bitcoin = require('bitcoinjs-lib')
 const { EventEmitter } = require('events')
-const { Bitcoin } = require('../../wallet/src/currency.js')
+const Bitcoin = require('./currency.js')
 
 class Transaction extends EventEmitter {
   constructor (config) {

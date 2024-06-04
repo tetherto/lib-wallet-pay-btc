@@ -1,8 +1,8 @@
-const WalletPay = require('../../wallet-pay/src/wallet-pay.js')
+const { WalletPay } = require('lib-wallet')
 const Transaction = require('./transaction.js')
 const HdWallet = require('./hdwallet.js')
 const SyncManager = require('./sync-manager.js')
-const Bitcoin = require('../../wallet/src/currency.js').Bitcoin
+const Bitcoin = require('./currency')
 
 const WalletPayError = Error
 

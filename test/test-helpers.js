@@ -5,7 +5,7 @@ const BIP39Seed = require('../../wallet-seed-bip39/src/wallet-seed-bip39.js')
 const Electrum = require('../src/electrum.js')
 const HdWallet = require('../src/hdwallet.js')
 const { bitcoin: bitcoinTest } = require('../../wallet-test-tools/')
-const BitcoinCurr = require('../../wallet/src/currency.js')
+const BitcoinCurr = require('../src/currency')
 
 async function newElectrum (config = {}) {
   config.host = 'localhost' || config.host

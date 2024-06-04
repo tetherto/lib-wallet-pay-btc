@@ -1,5 +1,5 @@
 const { EventEmitter } = require('events')
-const { Bitcoin } = require('../../wallet/src/currency.js')
+const Bitcoin = require('./currency')
 
 // TODO: handle unsupported electrum RPC methods
 
