@@ -23,6 +23,7 @@ async function newElectrum (config = {}) {
 
 function newStore () {
   return new WalletStoreHyperbee()
+  // return new WalletStoreHyperbee({ store_path: './test-store' })
 }
 
 let _regtest

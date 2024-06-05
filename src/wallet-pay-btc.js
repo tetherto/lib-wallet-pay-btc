@@ -57,7 +57,7 @@ class StateDb {
   }
 
   async getWatchedScriptHashes (addrType) {
-    return await(this.store.get('watched_script_hashes_' + addrType)) || []
+    return await (this.store.get('watched_script_hashes_' + addrType)) || []
   }
 
   async setTotalBalance (balance) {
@@ -89,7 +89,6 @@ class WalletPayBitcoin extends WalletPay {
   **/ 
   constructor (config) {
 
-
     super(config)
     if (!WalletPayBitcoin.networks.includes(this.network)) throw new WalletPayError('Invalid network')
     
@@ -115,11 +114,17 @@ class WalletPayBitcoin extends WalletPay {
   async initialize (wallet) {
     if (this.ready) return 
 
+    // @desc use default key manager
     if(!this.keyManager) {
       this.keyManager = new (require('./wallet-key-btc.js'))({ seed: wallet.seed, network: this.network })
     }
 
+    // Add asset to wallet
     await super.initialize(wallet)
+
+    if(!this.keyManager.network) {
+      this.keyManager.setNetwork(this.network)
+    }
     
     if(!this.provider) {
       this._electrum_config.store = this.store
@@ -156,12 +161,17 @@ class WalletPayBitcoin extends WalletPay {
     const electrum = new Promise((resolve, reject) => {
       // @note: Blocks may be skipped.
       // TODO: handle reorgs
+      let resolved = false
       this.provider.on('new-block', (block) => {
         this.latest_block = block.height
         this._syncManager.updateBlock(this.latest_block)
-        this.ready = true
-        this.emit('ready')
-        resolve()
+        this.emit('new-block', block)
+        if(!resolved) {
+          this.ready = true
+          this.emit('ready')
+          resolve()
+          resolved = true
+        }
       })
     })
     await this.provider.subscribeToBlocks()

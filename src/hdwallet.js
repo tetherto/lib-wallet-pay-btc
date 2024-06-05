@@ -51,7 +51,7 @@ class HdWallet {
     return this.store.get('current_internal_path')
   }
 
-  getLastExtPath () {
+  async getLastExtPath () {
     return this.store.get('current_external_path')
   }
 

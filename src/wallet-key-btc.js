@@ -16,8 +16,14 @@ class WalletKeyBitcoin {
       this.ready = false
     }
     
-    if (config.network === 'mainnet') config.network = 'bitcoin'
-    this.network = bitcoin.networks[config.network]
+    if(config.network) {
+      this.setNetwork(config.network)
+    }
+  }
+
+  setNetwork(network) {
+    if (network === 'mainnet') network = 'bitcoin'
+    this.network = bitcoin.networks[network]
   }
   
   // Custom inspect method

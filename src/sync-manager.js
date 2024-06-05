@@ -131,6 +131,9 @@ class SyncManager extends EventEmitter {
   updateBlock (block) {
     if (block <= 0) throw new Error('invalid block height')
     this.currentBlock = block
+    if(this.currentBlock !== block) {
+      //TODO: Update balance states on new block
+    }
   }
 
   async _processHistory (addr, txHistory) {

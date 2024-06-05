@@ -342,7 +342,7 @@ test('bip84 test vectors', async function (t) {
   const changeAddr = await btcPay._getInternalAddress()
   const changeAddr2 = await btcPay._getInternalAddress()
 
-  t.ok(addr1.address === 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu', 'fiirst receive address')
+  t.ok(addr1.address === 'bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu', 'first receive address')
   t.ok(addr1.path === "m/84'/0'/0'/0/0", 'first receive path')
   t.ok(addr1.WIF === 'KyZpNDKnfs94vbrwhJneDi77V6jF64PWPF8x5cdJb8ifgg2DUc9d', 'first receive WIF')
   t.ok(addr1.publicKey === '0330d54fd0dd420a6e5f8d3624f5f3482cae350f79d5f0753bf5beef9c2d91af3c', 'first receive public key')
