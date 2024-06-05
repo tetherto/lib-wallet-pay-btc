@@ -4,7 +4,7 @@ const KeyManager = require('../src/wallet-key-btc.js')
 const BIP39Seed = require('wallet-seed-bip39')
 const Electrum = require('../src/electrum.js')
 const HdWallet = require('../src/hdwallet.js')
-const { bitcoin: bitcoinTest } = require('../../wallet-test-tools/')
+const { bitcoin } = require('../../wallet-test-tools/')
 const BitcoinCurr = require('../src/currency')
 
 async function newElectrum (config = {}) {
@@ -28,7 +28,7 @@ function newStore () {
 let _regtest
 async function regtestNode (opts = {}) {
   if (_regtest) return _regtest
-  _regtest = new bitcoinTest.BitcoinCore({})
+  _regtest = new bitcoin.BitcoinCore({})
   await _regtest.init()
   if (!opts.mine) return _regtest
   await _regtest.mine({ blocks: 1 })

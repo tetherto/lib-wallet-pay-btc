@@ -84,8 +84,8 @@ class Electrum extends EventEmitter {
     super()
     if (!config.host || !config.port) throw new Error('Network is required')
     this._subscribe()
-    this.port = config.port
-    this.host = config.host
+    this.port = config.port || 8001
+    this.host = config.host || 'localhost'
     this._net = config.net || require('net')
     this.clientState = 0
     this.requests = new Map()

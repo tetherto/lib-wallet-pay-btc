@@ -7,7 +7,7 @@ const bitcoin = require('bitcoinjs-lib')
 // [] unit tests
 
 class WalletKeyBitcoin {
-  constructor (config) {
+  constructor (config = {}) {
     if(config.seed) {
       this.seed = config.seed
       this.bip32 = bip32.fromSeed(this.seed.seed, bitcoin.networks.bitcoin)

@@ -75,6 +75,7 @@ class WalletPayBitcoin extends WalletPay {
   static events = ['ready', 'synced-path', 'new-tx']
 
   constructor (config) {
+    config.provider = config.provider || (require('./electrum.js'))(config.electrum)
     super(config)
     if (!WalletPayBitcoin.networks.includes(this.network)) throw new WalletPayError('Invalid network')
     
@@ -84,6 +85,7 @@ class WalletPayBitcoin extends WalletPay {
     this.latest_block = 0 
     this.ready = false
     this.currency = Bitcoin
+    this.keyManager = config.key_manager || null
   }
 
   async destroy () {
@@ -99,6 +101,11 @@ class WalletPayBitcoin extends WalletPay {
   async initialize (wallet) {
     if (this.ready) return 
     await super.initialize(wallet)
+
+    if(!this.keyManager) {
+      this.keyManager = new (require('./wallet-key-btc.js'))({ seed: wallet.seed })
+    }
+    
     this._hdWallet = new HdWallet({ 
       store: this.store.newInstance({ name: 'hdwallet' }) 
     })
