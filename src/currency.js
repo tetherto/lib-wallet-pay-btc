@@ -1,6 +1,6 @@
 const { Currency } = require('lib-wallet')
 
-const BN = Currency.BN
+const BN = Currency._BN
 
 class Bitcoin extends Currency {
 

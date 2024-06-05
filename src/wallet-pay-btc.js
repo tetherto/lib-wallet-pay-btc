@@ -74,12 +74,26 @@ class WalletPayBitcoin extends WalletPay {
   static networks = ['regtest', 'mainnet', 'testnet', 'signet', 'bitcoin']
   static events = ['ready', 'synced-path', 'new-tx']
 
+
+  /**
+  * @desc WalletPayBitcoin
+  * @param {Object} config - Config
+  * @param {Object} [config.provider=Electrum]- block data provider
+  * @param {Object} [electrum config]. See Electrum.js for all options
+  * @param {Object} config.store - store instance
+  * @param {Object} [config.key_manager=WalletKeyBtc] - key manager instance. 
+  * @param {Seed} config.seed - seed for key manager.
+  * @param {String} config.network - blockchain network
+  * @param {Number} [config.gapLimit=20] - gap limit. How far to look ahead when scanning for balances
+  * @param {Number} [config.min_block_confirm=1] - minimum number of block confirmations
+  **/ 
   constructor (config) {
-    config.provider = config.provider || (require('./electrum.js'))(config.electrum)
+
+
     super(config)
     if (!WalletPayBitcoin.networks.includes(this.network)) throw new WalletPayError('Invalid network')
     
-
+    this._electrum_config = config.electrum || {}
     this.gapLimit = config.gapLimit || 20
     this.min_block_confirm = config.min_block_confirm || 1
     this.latest_block = 0 
@@ -100,10 +114,16 @@ class WalletPayBitcoin extends WalletPay {
 
   async initialize (wallet) {
     if (this.ready) return 
-    await super.initialize(wallet)
 
     if(!this.keyManager) {
-      this.keyManager = new (require('./wallet-key-btc.js'))({ seed: wallet.seed })
+      this.keyManager = new (require('./wallet-key-btc.js'))({ seed: wallet.seed, network: this.network })
+    }
+
+    await super.initialize(wallet)
+    
+    if(!this.provider) {
+      this._electrum_config.store = this.store
+      this.provider = new (require('./electrum.js'))(this._electrum_config)
     }
     
     this._hdWallet = new HdWallet({ 
@@ -112,6 +132,11 @@ class WalletPayBitcoin extends WalletPay {
     this.state = new StateDb({
       store: this.store.newInstance({ name: 'state' })
     })
+
+    if(!this.provider.isConnected()) {
+      await this.provider.connect()
+    }
+    
     this._syncManager = new SyncManager({
       state: this.state,
       gapLimit: this.gapLimit,

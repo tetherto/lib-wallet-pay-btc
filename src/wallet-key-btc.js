@@ -15,17 +15,15 @@ class WalletKeyBitcoin {
     } else {
       this.ready = false
     }
+    
+    if (config.network === 'mainnet') config.network = 'bitcoin'
+    this.network = bitcoin.networks[config.network]
   }
   
   // Custom inspect method
   close() {
     this.seed = null 
     this.bip32 = null
-  }
-
-  setNetwork (network) {
-    if (network === 'mainnet') network = 'bitcoin'
-    this.network = bitcoin.networks[network]
   }
 
   setSeed(seed) {

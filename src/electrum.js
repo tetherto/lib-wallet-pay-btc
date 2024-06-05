@@ -80,9 +80,8 @@ class RequestCache {
 }
 
 class Electrum extends EventEmitter {
-  constructor (config) {
+  constructor (config = {}) {
     super()
-    if (!config.host || !config.port) throw new Error('Network is required')
     this._subscribe()
     this.port = config.port || 8001
     this.host = config.host || 'localhost'
@@ -294,13 +293,17 @@ class Electrum extends EventEmitter {
     this.emit('new-block', height)
   }
 
-  close () {
+  async close() {
+    await this._stopClient()
+    await this.cache.stop()
+  }
+
+  _stopClient () {
     return new Promise((resolve) => {
       this.clientState = 0
       this._reconnect_count = this._max_attempt
       this._client.on('end', () => resolve())
       this._client.end()
-      this.cache.stop()
     })
   }
 
@@ -320,6 +323,10 @@ class Electrum extends EventEmitter {
 
   async unsubscribeFromAddress (scriptHash) {
     console.log('TODO unsubscribe')
+  }
+
+  isConnected () {
+    return this.clientState === 1
   }
 }
 
