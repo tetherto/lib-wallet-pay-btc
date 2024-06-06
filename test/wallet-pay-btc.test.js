@@ -168,47 +168,63 @@ test('getTransactions', async (t) => {
 });
 
 (async () => {
-  const t = test('create address, send btc and check balance')
-  const regtest = await regtestNode()
-  t.comment('create new wallet')
-  const btcPay = await activeWallet({ newWallet: true })
-  //const max = btcPay._syncManager._max_script_watch
-  const max = 2
-  let res
-  let pass = []
-  async function newTx () {
-    t.comment('checking balance')
-    for( let key in send) {
-      let addr = key
-      const amount = send[key]
-      let balance 
-      try {
-        balance = await btcPay.getBalance({}, addr)
-      } catch(e) {
-        console.log(e)
-        return 
-      }
-      const bal = balance.pending.add(balance.confirmed).toMainUnit()
-      if(+bal === 0 ) continue 
-      t.ok(bal === amount.toString(), `address balance matches sent amount ${addr} - ${amount} - ${bal}`)
-      await btcPay.destroy()
-      t.pass()
-      t.end()
-    }
-  }
+  solo('balance check', async (tst) => {
+    const t = tst.test('create address, send btc and check balance')
+    const regtest = await regtestNode()
+    t.comment('create new wallet')
+    const btcPay = await activeWallet({ newWallet: true })
+    //const max = btcPay._syncManager._max_script_watch
+    const max = 2
+    let res
 
-  const send = {}
-  btcPay._syncManager.on('new-tx', newTx)
-  t.comment('getting new address')
-  const addr = await btcPay.getNewAddress()
-  const amount = +(Math.random() * 0.01).toFixed(5)
-  send[addr.address] = amount
-  t.comment(`Sending  - ${addr.address} - ${amount}`)
-  await regtest.sendToAddress({ address: addr.address, amount })
-  t.comment('mining block')
-  await regtest.mine(1)
-  t.comment('waiting for electrum to update')
-  await btcPay._onNewTx()
+    async function newTx () {
+      t.comment('checking balance', state, send)
+      for( let key in send) {
+        let addr = key
+        const amount = send[key]
+        let balance 
+        try {
+          balance = await btcPay.getBalance({}, addr)
+        } catch(e) {
+          console.log(e)
+          continue 
+        }
+        const bal = balance[state].toMainUnit()
+        t.ok(bal === amount.toString(), `address balance matches sent amount ${state} ${addr} - ${amount} - ${bal}`)
+        pass[state].resolve(state)
+      }
+    }
+    let pass = {}
+    for(let state of ['mempool', 'pending', 'confirmed']) {
+      pass[state] = {}
+      pass[state].promise = new Promise((resolve, reject) => {
+        pass[state].resolve = resolve
+        pass[state].reject = reject
+      })
+    }
+    const send = {}
+    let state = ''
+    btcPay._syncManager.on('new-tx', newTx)
+    t.comment('getting new address')
+    const addr = await btcPay.getNewAddress()
+    const amount = +(Math.random() * 0.01).toFixed(5)
+    send[addr.address] = amount
+    t.comment(`Sending  - ${addr.address} - ${amount}`)
+    t.comment('wait for mempool tx')
+    state = 'mempool'
+    await regtest.sendToAddress({ address: addr.address, amount })
+    const z = await pass.mempool.promise
+    t.comment('mining block for pending tx')
+    state = 'pending'
+    await regtest.mine(1)
+    await pass.pending.promise
+    state = 'confirmed'
+    t.comment('mining block for confirmed tx')
+    await regtest.mine(1)
+    await pass.confirmed.promise
+    await btcPay.destroy()
+    t.end()
+  })
 })();
 
 test('pauseSync - internal and external', async (t) => {

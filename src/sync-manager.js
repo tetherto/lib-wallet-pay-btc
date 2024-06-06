@@ -36,6 +36,7 @@ class SyncManager extends EventEmitter {
     await this._addr.init()
     this._unspent = new UnspentStore({ store: this.store })
     await this._unspent.init()
+
   }
 
   async reset () {
@@ -96,7 +97,7 @@ class SyncManager extends EventEmitter {
     const process = async (data) => {
       await Promise.all(data.map(async ([scripthash, addr, path, balHash]) => {
         if (changeHash === balHash) return
-        const txHistory = await provider.getAddressHistory(scripthash)
+        const txHistory = await provider.getAddressHistory({ cache: false },scripthash)
         await this._processHistory(addr, txHistory)
       }))
     }
@@ -128,11 +129,40 @@ class SyncManager extends EventEmitter {
     return this._unspent.unlock(state)
   }
 
-  updateBlock (block) {
+  async updateBlock (block) {
     if (block <= 0) throw new Error('invalid block height')
-    this.currentBlock = block
-    if(this.currentBlock !== block) {
+    if(this.currentBlock !== block && this.currentBlock !== 0){
+      this.currentBlock = block
       //TODO: Update balance states on new block
+      this._newBlock()
+      return 
+    }
+    this.currentBlock = block
+  }
+
+  async _newBlock () {
+    const { _addr } = this
+    const pTx = (await this._addr.getTxHeight(this.currentBlock - 1)) || []
+
+    const newTx = await Promise.all(pTx.map(async (tx) => {
+      return await this.provider.getTransaction(tx.txid, { cache: false })
+    }))
+
+
+    const processTx = async (inout, tx) => {
+      await Promise.all(tx[inout].map(async (utxo) => {
+        const dbAddr = await _addr.get(utxo.address)
+        if(!dbAddr) return
+        return this._processHistory({address: utxo.address}, [tx])
+      }))
+    }
+    await Promise.all(newTx.map(async (tx) => {
+      await processTx('in', tx)
+      await processTx('out', tx)
+    }))
+
+    if(newTx.length > 0) {
+      this.emit('new-tx')
     }
   }
 
@@ -165,7 +195,7 @@ class SyncManager extends EventEmitter {
     }
     let hasTx = false
     const [scriptHash, addr] = keyManager.pathToScriptHash(path, HdWallet.getAddressType(path))
-    const txHistory = await provider.getAddressHistory(scriptHash)
+    const txHistory = await provider.getAddressHistory({} ,scriptHash)
 
     if (Array.isArray(txHistory) && txHistory.length === 0) {
       // increase gap count if address has no tx
@@ -240,8 +270,10 @@ class SyncManager extends EventEmitter {
   _getTxState (tx) {
     if (tx.height === 0) return 'mempool'
     // minimum number of confirmations before the tx is accepted
-    if (this.currentBlock - tx.height >= this.minBlockConfirm) return 'confirmed'
-    return 'pending'
+    const diff = this.currentBlock - tx.height
+    if (diff >= this.minBlockConfirm) return 'confirmed'
+    if(diff < this.minBlockConfirm && diff >= 0) return 'pending'
+    throw new Error('tx height is invalid ' + tx.height)
   }
 
   async _processUtxo (utxoList, inout, txState, txFee = 0, addr, txid) {
@@ -251,20 +283,20 @@ class SyncManager extends EventEmitter {
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
       const bal = await _addr.get(utxo.address)
+
       if (utxo.address !== addr.address || !bal) return
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
 
       // Prevent duplicate txid from being added
-      if ((inout === 'in' && bal.intxid.includes(point)) || (inout === 'out' && bal.outtxid.includes(point))) return
-
-      bal[inout][txState] = bal[inout][txState].add(utxo.value)
-      _total[inout][txState] = _total[inout][txState].add(utxo.value)
-
-      if (inout === 'out') {
-        bal.fee[txState] = bal.fee[txState].add(txFee)
-        bal.outtxid.push(point)
-      } else {
-        bal.intxid.push(point)
+      // continue if changed and update state 
+      // find which balance needs to be negated if exists
+      // if eixsts already minus from state
+      //
+      _total[inout].addTxid(txState, point, utxo.value)
+      bal[inout].addTxid(txState, point, utxo.value)
+      if(txFee > 0) {
+        _total.fee.addTxid(txState, point, txFee)
+        bal.fee.addTxid(txState, point, txFee)
       }
       _addr.set(utxo.address, bal)
       await this._unspent.add(utxo, inout)

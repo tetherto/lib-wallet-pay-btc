@@ -84,5 +84,5 @@ module.exports = {
   activeWallet,
   regtestNode,
   pause,
-  BitcoinCurrency: BitcoinCurr.Bitcoin
+  BitcoinCurrency: BitcoinCurr
 }

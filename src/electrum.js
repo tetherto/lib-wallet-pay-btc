@@ -206,12 +206,12 @@ class Electrum extends EventEmitter {
     this.requests.delete(resp.id)
   }
 
-  async getAddressHistory (scriptHash) {
+  async getAddressHistory (opts, scriptHash) {
     const history = await this._makeRequest('blockchain.scripthash.get_history', [scriptHash])
     const txData = []
     for (const index in history) {
       const tx = history[index]
-      const td = await this.getTransaction(tx.tx_hash, scriptHash)
+      const td = await this.getTransaction(tx.tx_hash, opts)
       td.height = tx.height
       txData.push(td)
     }
@@ -241,7 +241,7 @@ class Electrum extends EventEmitter {
   /**
   * @description get transaction details. Store tx in cache.
   */
-  async getTransaction (txid, sc) {
+  async getTransaction (txid, opts = {}) {
     const cache = this.cache
     const data = {
       txid,
@@ -250,6 +250,11 @@ class Electrum extends EventEmitter {
     }
 
     const getOrFetch = async (txid) => {
+      if(opts.cache === false) {
+        const data = await this._getTransaction(txid)
+        await cache.set(txid, data)
+        return data
+      }
       const cacheValue = await cache.get(txid)
       if (cacheValue) return cacheValue
       const data = await this._getTransaction(txid)
@@ -258,6 +263,11 @@ class Electrum extends EventEmitter {
     }
 
     const tx = await getOrFetch(txid)
+    if(!tx.confirmations) {
+      data.height = 0
+    } else {
+      data.height = this.block_height - (tx.confirmations - 1)
+    }
     let totalOut = new Bitcoin(0, 'main')
     data.out = tx.vout.map((vout) => {
       const newvout = this._processTxVout(vout)

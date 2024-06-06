@@ -1,13 +1,45 @@
 const Bitcoin = require('./currency')
 
 class Balance {
-  constructor (confirmed, pending, mempool) {
+  constructor (confirmed, pending, mempool, txid) {
     // @desc: confirmed balance. Tx that have more than X amount of confirmations 
     this.confirmed = new Bitcoin(confirmed, 'main')
     // @desc: pending balance. Tx that have less than X amount of confirmations
     this.pending = new Bitcoin(pending, 'main')
     // @desc: mempool balance. Tx that are in the mempool, 0 confirmations
     this.mempool = new Bitcoin(mempool, 'main')
+
+    this.txid = txid || {
+      confirmed: [],
+      pending: [],
+      mempool: []
+    }
+  }
+
+  addTxid(state, txid, amount) {
+    for(const state in this.txid) {
+      this.txid[state] = this.txid[state].filter((tx) => {
+        if(tx === txid) {
+          this.minusBalance(state, amount)
+          return false
+        }
+        return true
+      })
+    }
+    this.addBalance(state, amount)
+    this.txid[state].push(txid)
+  }
+
+  getTx(state, key) {
+    return this.txid[state].filter(tx => tx === key).pop()
+  }
+
+  addBalance(state, amount) {
+    this[state] = this[state].add(amount)
+  }
+
+  minusBalance(state, amount) {
+    this[state] = this[state].minus(amount)
   }
 }
 
@@ -35,14 +67,9 @@ class AddressManager {
 
   _newAddr () {
     return {
-      // @desc total balances for VIN and VOUTS
       in: new Balance(0, 0, 0),
       out: new Balance(0, 0, 0),
-      // @desc: transaction fee totals
       fee: new Balance(0, 0, 0),
-      // @desc: txid of processsed vins and vouts
-      intxid: [],
-      outtxid: []
     }
   }
 
@@ -68,11 +95,9 @@ class AddressManager {
     const data = await this.store.get(addr)
     if(!data) return null
     return {
-      in : new Balance(data.in.confirmed, data.in.pending, data.in.mempool),
-      out : new Balance(data.out.confirmed, data.out.pending, data.out.mempool),
-      fee : new Balance(data.fee.confirmed, data.fee.pending, data.fee.mempool),
-      intxid: data.intxid,
-      outtxid: data.outtxid
+      in : new Balance(data.in.confirmed, data.in.pending, data.in.mempool, data.in.txid),
+      out : new Balance(data.out.confirmed, data.out.pending, data.out.mempool, data.out.txid),
+      fee : new Balance(data.fee.confirmed, data.fee.pending, data.fee.mempool, data.fee.txid),
     }
   }
 
@@ -98,8 +123,8 @@ class AddressManager {
   /**
   * @desc Get transaction history by block height
   */ 
-  _getTxHeight (height) {
-    return this.history.get(height)
+  getTxHeight (height) {
+    return this.history.get('i:'+height)
   }
 
   /**
@@ -113,9 +138,10 @@ class AddressManager {
     for (const x in mp) {
       if (mp[x].txid === txid) {
         mp.splice(x, 1)
-        return
+        break
       }
     }
+    return this.history.put('i:' + 0, mp)
   }
 
   /**
@@ -123,18 +149,21 @@ class AddressManager {
   **/
   storeTxHistory (history) {
     return Promise.all(history.map(async (tx) => {
-      const height = tx.height === 0 ? 'mempool' : tx.height
-      let heightTx = await this._getTxHeight(tx.height)
+      let heightTx = await this.getTxHeight(tx.height)
       if (!heightTx) {
         heightTx = []
       } else {
         const exists = heightTx.some(htx => htx.txid === tx.txid)
         if (exists) return
       }
-      await this._removeFromMempool(tx)
+      await this._removeFromMempool(tx.txid)
       heightTx.push(tx)
-      return this.history.put('i:' + height, heightTx)
+      return this.history.put('i:' + tx.height, heightTx)
     }))
+  }
+
+  getMempoolTx() {
+    return this.history.get('i:' + 0)
   }
 
   /**

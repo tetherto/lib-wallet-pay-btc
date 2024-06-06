@@ -159,20 +159,20 @@ class WalletPayBitcoin extends WalletPay {
     await this._syncManager.init()
     await this._hdWallet.init()
     const electrum = new Promise((resolve, reject) => {
+      this.provider.once('new-block', (block) => {
+        this.ready = true
+        this.emit('ready')
+        resolve()
+      })
+    })
+
+    this.provider.on('new-block', async (block) => {
       // @note: Blocks may be skipped.
       // TODO: handle reorgs
-      let resolved = false
-      this.provider.on('new-block', (block) => {
-        this.latest_block = block.height
-        this._syncManager.updateBlock(this.latest_block)
-        this.emit('new-block', block)
-        if(!resolved) {
-          this.ready = true
-          this.emit('ready')
-          resolve()
-          resolved = true
-        }
-      })
+      this.latest_block = block.height
+      await this._syncManager.updateBlock(this.latest_block)
+      this.emit('new-block', block)
+
     })
     await this.provider.subscribeToBlocks()
 
