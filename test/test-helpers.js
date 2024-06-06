@@ -73,6 +73,18 @@ async function pause (ms) {
   })
 }
 
+function promiseSteps(arr){
+  let pass = {}
+  for(let state of arr) {
+    pass[state] = {}
+    pass[state].promise = new Promise((resolve, reject) => {
+      pass[state].resolve = resolve
+      pass[state].reject = reject
+    })
+  }
+  return pass
+}
+
 module.exports = {
   BitcoinPay,
   WalletStore: WalletStoreHyperbee,
@@ -84,5 +96,6 @@ module.exports = {
   activeWallet,
   regtestNode,
   pause,
+  promiseSteps,
   BitcoinCurrency: BitcoinCurr
 }

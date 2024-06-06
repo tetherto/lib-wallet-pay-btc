@@ -18,6 +18,7 @@ class SyncManager extends EventEmitter {
     this.currentBlock = config.currentBlock
     this.minBlockConfirm = config.minBlockConfirm
     this.store = config.store
+    this.maxScriptWatch = config.maxScriptWatch || 10
 
     // @desc: halt syncing
     this._halt = false
@@ -47,8 +48,8 @@ class SyncManager extends EventEmitter {
     }
     await this.state.setTotalBalance(total)
     this._total = total
-    this.resumeSync()
-    this.state.resetSyncState()
+    await this.resumeSync()
+    await this.state.resetSyncState()
   }
 
   async close () {
@@ -79,12 +80,14 @@ class SyncManager extends EventEmitter {
 
   async _subscribeToScriptHashes () {
     const { state, provider } = this
-    const scriptHashes = await state.getWatchedScriptHashes()
+    const scriptHashes = (await state.getWatchedScriptHashes('in')).concat(
+      await state.getWatchedScriptHashes('ext')
+    )
     provider.on('new-tx', async (changeHash) => {
       await this._updateScriptHashBalance(changeHash)
       this.emit('new-tx')
     })
-    await Promise.all(scriptHashes.map(async ([scripthash, balhash]) => {
+    await Promise.all(scriptHashes.map(async ([scripthash]) => {
       return provider.subscribeToAddress(scripthash)
     }))
   }
@@ -111,6 +114,9 @@ class SyncManager extends EventEmitter {
     }))
   }
 
+  /**
+  * @description watch address for changes and save to store for when lib is resumed 
+  **/
   async watchAddress ([scriptHash, addr], addrType) {
     const { state, _max_script_watch: maxScriptWatch, provider } = this
     const hashList = await state.getWatchedScriptHashes(addrType)
@@ -130,21 +136,34 @@ class SyncManager extends EventEmitter {
   }
 
   async updateBlock (block) {
-    if (block <= 0) throw new Error('invalid block height')
-    if(this.currentBlock !== block && this.currentBlock !== 0){
+    if(block.current !== 0 && block.diff > 0 && block.last !== 0 ) {
       this.currentBlock = block
-      //TODO: Update balance states on new block
       this._newBlock()
       return 
     }
     this.currentBlock = block
   }
 
+  /**
+  * @description process new block, catch up with missed blocks, and update balances and utxo store
+  **/
   async _newBlock () {
-    const { _addr } = this
-    const pTx = (await this._addr.getTxHeight(this.currentBlock - 1)) || []
+    const { _addr, currentBlock } = this
 
-    const newTx = await Promise.all(pTx.map(async (tx) => {
+    // const arr = await this._addr.getTxHeight(currentBlock.last)
+    // if(!arr) return
+    let arr = []
+    for(let i = currentBlock.last; i <= currentBlock.current; i++) {
+      // get transactions at each 
+      let z = await this._addr.getTxHeight(i)
+
+      if(!z) continue
+      arr = arr.concat(z)
+    }
+    console.log(currentBlock)
+    console.log(arr)
+
+    const newTx = await Promise.all(arr.map(async (tx) => {
       return await this.provider.getTransaction(tx.txid, { cache: false })
     }))
 
@@ -174,6 +193,8 @@ class SyncManager extends EventEmitter {
     if (!dbAddr) {
       await _addr.newAddress(addr.address)
     }
+    console.log('TX HISTORY')
+    console.log(txHistory)
 
     await _addr.storeTxHistory(txHistory)
 
@@ -229,7 +250,7 @@ class SyncManager extends EventEmitter {
       gapEnd = res[2]
       gapCount = res[3]
       if (!done) return halt()
-      // Update path tracking state to not reuse addresses
+      // Update path tracking state to not reuse addresses when reloaded
       if (hasTx) {
         hdWallet.updateLastPath(HdWallet.bumpIndex(path))
       }
@@ -269,11 +290,9 @@ class SyncManager extends EventEmitter {
 
   _getTxState (tx) {
     if (tx.height === 0) return 'mempool'
-    // minimum number of confirmations before the tx is accepted
-    const diff = this.currentBlock - tx.height
+    const diff = this.currentBlock.current - tx.height
     if (diff >= this.minBlockConfirm) return 'confirmed'
-    if(diff < this.minBlockConfirm && diff >= 0) return 'pending'
-    throw new Error('tx height is invalid ' + tx.height)
+    return 'pending'
   }
 
   async _processUtxo (utxoList, inout, txState, txFee = 0, addr, txid) {
@@ -285,15 +304,15 @@ class SyncManager extends EventEmitter {
       const bal = await _addr.get(utxo.address)
 
       if (utxo.address !== addr.address || !bal) return
+      // point is the txid:vout index. Unique id for utxo
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
 
-      // Prevent duplicate txid from being added
-      // continue if changed and update state 
-      // find which balance needs to be negated if exists
-      // if eixsts already minus from state
-      //
+      // update balance of each tx state. mempool, confirmed, pending
+      // add txid to txid list for each state
       _total[inout].addTxid(txState, point, utxo.value)
       bal[inout].addTxid(txState, point, utxo.value)
+
+      // update fee balances
       if(txFee > 0) {
         _total.fee.addTxid(txState, point, txFee)
         bal.fee.addTxid(txState, point, txFee)

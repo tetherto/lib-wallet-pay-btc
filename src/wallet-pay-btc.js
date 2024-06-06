@@ -1,4 +1,5 @@
 const { WalletPay } = require('lib-wallet')
+const { EventEmitter, once } = require('events')
 const Transaction = require('./transaction.js')
 const HdWallet = require('./hdwallet.js')
 const SyncManager = require('./sync-manager.js')
@@ -68,6 +69,56 @@ class StateDb {
     return this.store.get('total_balance')
   }
 
+  async getLatestBlock () {
+    return await (this.store.get('latest_block')) || 0
+  }
+
+  async setLatestBlock (block) {
+    return this.store.put('latest_block', block)
+  }
+
+}
+
+
+class BlockCounter extends EventEmitter {
+  constructor (config) {
+    super()
+    this.state = config.state
+  }
+
+  async init () {
+    this.block = await this.state.getLatestBlock()
+  }
+
+  async setBlock (newBlock) {
+    const {height, hash } = newBlock
+
+    const diff = height - this.block
+    const last = this.block
+    if(diff < 0 ) {
+      // Block reorg? 
+      console.log('block reorg detected')
+      return 
+    } 
+
+    this.block = height
+    await this._emitBlock({
+      current: height,
+      diff: diff,
+      last
+    })
+    this.state.setLatestBlock(this.block)
+    return true
+  }
+
+  async _emitBlock(block) {
+    const events = this.rawListeners('new-block')
+
+    await Promise.all(events.map(async (event) => {
+      return event(block)
+    }))
+
+  }
 }
 
 class WalletPayBitcoin extends WalletPay {
@@ -95,7 +146,6 @@ class WalletPayBitcoin extends WalletPay {
     this._electrum_config = config.electrum || {}
     this.gapLimit = config.gapLimit || 20
     this.min_block_confirm = config.min_block_confirm || 1
-    this.latest_block = 0 
     this.ready = false
     this.currency = Bitcoin
     this.keyManager = config.key_manager || null
@@ -138,6 +188,7 @@ class WalletPayBitcoin extends WalletPay {
       store: this.store.newInstance({ name: 'state' })
     })
 
+    
     if(!this.provider.isConnected()) {
       await this.provider.connect()
     }
@@ -154,11 +205,18 @@ class WalletPayBitcoin extends WalletPay {
       store: this.store
     })
 
+    this.block = new BlockCounter({ state : this.state })
+    await this.block.init()
+    this.block.on('new-block', async (block) => {
+      this.emit('new-block', block)
+      await this._syncManager.updateBlock(block)
+    })
+
 
     await this.state.init()
     await this._syncManager.init()
     await this._hdWallet.init()
-    const electrum = new Promise((resolve, reject) => {
+    const electrum = new Promise((resolve) => {
       this.provider.once('new-block', (block) => {
         this.ready = true
         this.emit('ready')
@@ -167,12 +225,7 @@ class WalletPayBitcoin extends WalletPay {
     })
 
     this.provider.on('new-block', async (block) => {
-      // @note: Blocks may be skipped.
-      // TODO: handle reorgs
-      this.latest_block = block.height
-      await this._syncManager.updateBlock(this.latest_block)
-      this.emit('new-block', block)
-
+      this.block.setBlock(block)
     })
     await this.provider.subscribeToBlocks()
 

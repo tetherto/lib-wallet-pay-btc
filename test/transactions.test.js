@@ -3,6 +3,7 @@ const {
   activeWallet,
   regtestNode,
   pause,
+  promiseSteps,
   BitcoinCurrency
 } = require('./test-helpers.js')
 
@@ -70,3 +71,65 @@ test.test('sendTransaction', { timeout: 600000 }, async function (t) {
     await btcPay.destroy()
   })
 })
+
+test.solo('balance reduction', { timeout: 600000 }, async function (t) {
+  const test = t.test('balance reduction')
+  test.plan(1)
+  const regtest = await regtestNode()
+  t.comment('create new wallet')
+  const btcPay = await activeWallet({ newWallet: true })
+  const addr = await btcPay.getNewAddress()
+  const { result: nodeAddr } = await regtest.getNewAddress()
+
+  t.comment('send 1 btc to new wallet ')
+
+  btcPay.once('new-tx', async function () {
+    t.comment('tx received')
+    const balance = await btcPay.getBalance()
+    const total = balance.pending.add(balance.confirmed)
+    t.ok(total.toString() === '10000000', 'balance added by 0.1 btc')
+    send()
+  })
+
+  async function send() {
+    async function confirmed(){
+      t.comment('tx confirmed')
+      const balance = await btcPay.getBalance()
+      console.log(balance)
+      t.ok(balance.mempool.toNumber() === (sentTx.totalSpent * -1), 'mempool balance is same totalSpent')
+
+    }
+
+    btcPay.once('new-tx', async function () {
+      t.comment('tx detected in mempool')
+      const balance = await btcPay.getBalance()
+      t.ok(balance.mempool.toNumber() === (sentTx.totalSpent * -1), 'mempool balance is same totalSpent')
+      btcPay.on('new-tx', confirmed)
+      t.comment('mining')
+      regtest.mine(1)
+    })
+    const data = {
+      amount : 0.0001,
+      unit: 'main',
+      address: nodeAddr,
+      fee:(Math.random() * 1000).toFixed()
+    }
+    console.log('sending amount', data)
+    const sentTx = await btcPay.sendTransaction({}, data)
+    console.log(sentTx)
+  }
+
+  const pass = promiseSteps(['mempool', 'pending', 'confirmed'])
+  await btcPay.syncTransactions()
+  await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  t.comment('mining blocks')
+  await regtest.mine(3)
+
+  await test
+  await btcPay.destroy()
+
+  test.pass('done')
+  console.log(111)
+
+})
+

@@ -35,6 +35,10 @@ class Transaction extends EventEmitter {
     const psbt = new bitcoin.Psbt({ network: bitcoin.networks[network] })
 
     utxo.forEach((utxo, index) => {
+      if(!utxo.address_public_key) {
+        console.log(utxo)
+
+      }
       psbt.addInput({
         hash: utxo.txid,
         index: utxo.index,
@@ -81,6 +85,7 @@ class Transaction extends EventEmitter {
       sendAddress: address,
       feeRate: psbt.getFeeRate(),
       totalFee: totalFee.toNumber(),
+      totalSpent: totalFee.plus(sendAmount.toBaseUnit()).toNumber(),
       vSize: tx.virtualSize(),
       hex: tx.toHex(),
       txid: tx.getId(),

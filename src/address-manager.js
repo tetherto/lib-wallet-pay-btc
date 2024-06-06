@@ -134,13 +134,16 @@ class AddressManager {
   * @param {String} txid - transaction id
   */
   async _removeFromMempool (txid) {
-    const mp = await this.history.get('i:' + 0) || []
+    let mp = await this.history.get('i:' + 0) || []
     for (const x in mp) {
       if (mp[x].txid === txid) {
         mp.splice(x, 1)
         break
       }
     }
+    if(mp.length === 0) {
+      mp = null
+    } 
     return this.history.put('i:' + 0, mp)
   }
 
@@ -173,7 +176,7 @@ class AddressManager {
   */
   getTransactions (fn) {
     return this.history.entries(async (key, value) => {
-      if (key.indexOf('i:') !== 0) return
+      if (key.indexOf('i:') !== 0 || !value) return
       return await fn(value)
     })
   }

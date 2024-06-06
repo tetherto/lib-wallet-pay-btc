@@ -9,6 +9,7 @@ const {
   activeWallet,
   regtestNode,
   pause,
+  promiseSteps,
   BitcoinCurrency
 } = require('./test-helpers.js')
 
@@ -73,6 +74,7 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   await btcPay.destroy()
   await btcPay2.destroy()
 })
+
 
 test('getNewAddress - address reuse logic', async (t) => {
   // Generate an new wallet and send some bitcoin to the address
@@ -167,6 +169,31 @@ test('getTransactions', async (t) => {
   if(c !== max) t.fail('tx not received')
 });
 
+test('Block counter', async (t) => {
+
+  const regtest = await regtestNode()
+  t.comment('create new wallet')
+  const btcPay = await activeWallet({ newWallet: true })
+  const p = new Promise((resolve, reject) => {
+  btcPay.once('new-block', async (block) => {
+    t.ok(block.diff === 1, 'block diff is 1')
+    t.ok(block.current - block.last === 1, 'block numbers are correct')
+    t.comment('mining 5 blocks')
+    btcPay.on('new-block', async (block) => {
+      await btcPay.destroy()
+      t.ok(block.diff === 5, 'block diff is 5')
+      t.ok(block.current - block.last === 5, 'block numbers are correct')
+      resolve()
+    })
+    regtest.mine({blocks : 5})
+  })
+  t.comment('mining')
+  })
+  await regtest.mine({ blocks : 1})
+
+  return p
+});
+
 (async () => {
   solo('balance check', async (tst) => {
     const t = tst.test('create address, send btc and check balance')
@@ -178,7 +205,7 @@ test('getTransactions', async (t) => {
     let res
 
     async function newTx () {
-      t.comment('checking balance', state, send)
+      t.comment('checking balance transition between confirmed/pending/mempool', state, send)
       for( let key in send) {
         let addr = key
         const amount = send[key]
@@ -191,17 +218,22 @@ test('getTransactions', async (t) => {
         }
         const bal = balance[state].toMainUnit()
         t.ok(bal === amount.toString(), `address balance matches sent amount ${state} ${addr} - ${amount} - ${bal}`)
+        if(state === 'pending') {
+          t.ok(balance.mempool.toMainUnit() === '0', 'mempool balance is 0')
+          t.ok(balance.confirmed.toMainUnit() === '0', 'confirmed balance is 0')
+        }
+        if(state === 'confirmed') {
+          t.ok(balance.mempool.toMainUnit() === '0', 'mempool balance is 0')
+          t.ok(balance.pending.toMainUnit() === '0', 'pending balance is 0')
+        }
+        if(state === 'mempool') {
+          t.ok(balance.confirmed.toMainUnit() === '0', 'confirmed balance is 0')
+          t.ok(balance.pending.toMainUnit() === '0', 'pending balance is 0')
+        }
         pass[state].resolve(state)
       }
     }
-    let pass = {}
-    for(let state of ['mempool', 'pending', 'confirmed']) {
-      pass[state] = {}
-      pass[state].promise = new Promise((resolve, reject) => {
-        pass[state].resolve = resolve
-        pass[state].reject = reject
-      })
-    }
+    const pass = promiseSteps(['mempool', 'pending', 'confirmed'])
     const send = {}
     let state = ''
     btcPay._syncManager.on('new-tx', newTx)
