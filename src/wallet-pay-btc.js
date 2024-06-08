@@ -79,7 +79,15 @@ class StateDb {
 
 }
 
-
+/**
+* @desc BlockCounter: Used to track block height within wallet.
+* @param {Object} config - Config
+* @param {Object} config.state - state instance for storing block height
+* @emits {Object} new-block - new block
+* @emits {Object} block - block
+* @emits {Object} diff - diff
+* @emits {Object} last - last block
+* */
 class BlockCounter extends EventEmitter {
   constructor (config) {
     super()

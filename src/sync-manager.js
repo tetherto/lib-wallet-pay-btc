@@ -149,6 +149,8 @@ class SyncManager extends EventEmitter {
   async _newBlock () {
     const { _addr, currentBlock } = this
 
+    // Get all txs in block range.
+    // We don't get tx in mempool as those are handled in _handleScriptHashChange
     let arr = []
     for(let i = currentBlock.last; i <= currentBlock.current; i++) {
       let z = await this._addr.getTxHeight(i)
@@ -164,11 +166,13 @@ class SyncManager extends EventEmitter {
 
     const processTx = async (inout, tx) => {
       await Promise.all(tx[inout].map(async (utxo) => {
+        // We get the address object from hdWallet, as it will be needed for signing tx
         const addr = await this.hdWallet.getAddress(utxo.address)
         if(!addr) return
         return this._processHistory(addr, [tx])
       }))
     }
+
     await Promise.all(newTx.map(async (tx) => {
       await processTx('in', tx)
       await processTx('out', tx)
@@ -181,6 +185,13 @@ class SyncManager extends EventEmitter {
     }
   }
 
+  /**
+  * @desc Store transaction history and process VIN and VOUTS. 
+  * This functions is called when there is a new block, syncing entire wallet, new script hash change is detected
+  * @param {Object} addr address object
+  * @param {Array} txHistory transaction history
+  * @return {Promise}
+  * */
   async _processHistory (addr, txHistory) {
     const { _addr } = this
 
@@ -285,14 +296,26 @@ class SyncManager extends EventEmitter {
     return 'pending'
   }
 
+  /**
+  * @description process tx history and update balances and utxo store
+  * @param {Array} utxoList list of utxos
+  * @param {String} inout in or out
+  * @param {String} txState mempool, confirmed, pending
+  * @param {Number} txFee fee for tx
+  * @param {Object} addr address object
+  * @param {String} txid transaction id
+  * @return {Promise}
+  * */
   async _processUtxo (utxoList, inout, txState, txFee = 0, addr, txid) {
     const { _addr, _total } = this
 
     return Promise.all(utxoList.map(async (utxo) => {
+
+      // set public keys for utxo, as they will be needed for signing tx
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
-      const bal = await _addr.get(utxo.address)
 
+      const bal = await _addr.get(utxo.address)
       if (utxo.address !== addr.address || !bal) return
       // point is the txid:vout index. Unique id for utxo
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
@@ -308,6 +331,7 @@ class SyncManager extends EventEmitter {
         bal.fee.addTxid(txState, point, txFee)
       }
       _addr.set(utxo.address, bal)
+      // Add UTXO to unspent store for tx signings 
       await this._unspent.add(utxo, inout)
       await this.state.setTotalBalance(_total)
     }))
