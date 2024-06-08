@@ -62,6 +62,7 @@ class UnspentStore {
     await this.vout.init()
     this.locked = await this.store.get('utxo_lock') || []
     this._lockedUtxo = []
+    this._spentUtxo = []
   }
 
   async close () {
@@ -86,6 +87,7 @@ class UnspentStore {
     }
   }
 
+  // @desc: remove utxo that has been spent using the vin set
   async process () {
     await this.vout.filter(async (utxo) => {
       return !(await this.vin.some((vin) => {
@@ -121,6 +123,7 @@ class UnspentStore {
     }
 
     await Promise.all(this.locked.map(async (id) => {
+      this._spentUtxo.push(id)
       return this.vout.filter((utxo) => utxo.txid !== id)
     }))
 
@@ -133,8 +136,10 @@ class UnspentStore {
     const utxo = []
     let done = false
 
+
     await this.vout.entries(async (v) => {
       if (this.locked.includes(v.txid) || done) return
+      if (this._spentUtxo.includes(v.txid) || done) return
       total = total.add(v.value)
       utxo.push(v)
       await this.lock(v.txid)
@@ -146,7 +151,7 @@ class UnspentStore {
     const diff = total.minus(amount)
 
     if (utxo.length === 0) {
-      throw new Error('Insufficient funds or no utxo')
+      throw new Error('Insufficient funds or no utxo available')
     }
 
     if (diff.toNumber() < 0) {

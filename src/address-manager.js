@@ -4,7 +4,7 @@ class Balance {
   constructor (confirmed, pending, mempool, txid) {
     // @desc: confirmed balance. Tx that have more than X amount of confirmations 
     this.confirmed = new Bitcoin(confirmed, 'main')
-    // @desc: pending balance. Tx that have less than X amount of confirmations
+    // @desc: pending balance. Tx that have less than X amount of confirmations but more than 0
     this.pending = new Bitcoin(pending, 'main')
     // @desc: mempool balance. Tx that are in the mempool, 0 confirmations
     this.mempool = new Bitcoin(mempool, 'main')
@@ -18,7 +18,7 @@ class Balance {
 
   addTxid(state, txid, amount) {
     for(const state in this.txid) {
-      this.txid[state] = this.txid[state].filter((tx) => {
+      this.txid[state] = this.txid[state].filter(([tx]) => {
         if(tx === txid) {
           this.minusBalance(state, amount)
           return false
@@ -27,11 +27,13 @@ class Balance {
       })
     }
     this.addBalance(state, amount)
-    this.txid[state].push(txid)
+    this.txid[state].push([txid, amount])
   }
 
   getTx(state, key) {
-    return this.txid[state].filter(tx => tx === key).pop()
+    return this.txid[state].filter(([tx]) => {
+      return tx === key
+    }).pop()
   }
 
   addBalance(state, amount) {
@@ -40,6 +42,24 @@ class Balance {
 
   minusBalance(state, amount) {
     this[state] = this[state].minus(amount)
+  }
+
+  combine(t2) {
+    const total = new Balance(0, 0, 0)
+    const t1 = this
+    total.mempool = this.mempool.minus(t2.mempool)
+    total.confirmed = this.confirmed.minus(t2.confirmed)
+    total.pending = this.pending.minus(t2.pending)
+    return total.formatted()
+  }
+
+  formatted() {
+    return {
+      confirmed: this.confirmed,
+      pending: this.pending,
+      mempool: this.mempool,
+      consolidated: this.confirmed.add(this.pending).add(this.mempool)
+    }
   }
 }
 
@@ -150,19 +170,21 @@ class AddressManager {
   /**
   * @desc Store transaction history in history store
   **/
-  storeTxHistory (history) {
-    return Promise.all(history.map(async (tx) => {
+  async storeTxHistory (history) {
+    for(const tx of history) {
       let heightTx = await this.getTxHeight(tx.height)
       if (!heightTx) {
         heightTx = []
       } else {
         const exists = heightTx.some(htx => htx.txid === tx.txid)
-        if (exists) return
+        if (exists){
+          continue
+        }
       }
       await this._removeFromMempool(tx.txid)
       heightTx.push(tx)
-      return this.history.put('i:' + tx.height, heightTx)
-    }))
+      await this.history.put('i:' + tx.height, heightTx)
+    }
   }
 
   getMempoolTx() {

@@ -2,8 +2,7 @@
 
 Bitcoin payment method for the wallet library. Powered by Electrum.
 
-
-### Example
+## Example
 
 ```javascript
 // Start with a storage engine
@@ -71,6 +70,8 @@ const { address } = await btcPay.getNewAddress()
 // Confirmed: Confirmed balance. This is transactions that have more than min number of confirmations 
 // Pending: Pending balance. Transactions that have less than min number of confirmations
 // Mempool: Mempool balance. Transactions that are in the mempool and have no confirmations.
+// If you pass an address, it will return balance of that address in your wallet
+// If you don't pass an address, it will return total balance of all addresses in your wallet.
 const addrBalance = await btcPay.getBalance({}, address)
 
 // Get total balance accress all addresses
@@ -110,15 +111,24 @@ const isvalid = await btcPay.isValidAddress('bcrt1qxeyapzy3ylv67qnxjtwx8npd8ypjk
 await btcPay.destroy()
 
 
-### TODO:
-[] get 1 transaction
-[] Handle block reorg
-[] Additional tests for: transaction creation and balance checking. 
-
 ```
 
-## Testing
-- There is extensive integration tests for this package. 
-- We use Brittle for testing. Checkout package.json for various test commands.
-- Integration tests need a electrum server connected to a regtest bitcoin node. 
+## Seashell CLI
 
+Seashell is a REPL Shell for testing and interacting with the wallet. You can create a new wallet, send transactions, get balances and addresses.
+To Access the seashell, run the following command:
+
+```bash
+node cli.js
+```
+
+To see all available commands, type `help` in the shell.
+
+```bash
+```bash
+## Testing
+
+- There is extensive integration tests for this package. 
+
+- We use Brittle for testing. Checkout package.json for various test commands.
+- Integration tests need a electrum server connected to a regtest bitcoin node.

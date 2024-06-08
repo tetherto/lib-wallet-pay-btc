@@ -35,10 +35,6 @@ class Transaction extends EventEmitter {
     const psbt = new bitcoin.Psbt({ network: bitcoin.networks[network] })
 
     utxo.forEach((utxo, index) => {
-      if(!utxo.address_public_key) {
-        console.log(utxo)
-
-      }
       psbt.addInput({
         hash: utxo.txid,
         index: utxo.index,
@@ -63,8 +59,12 @@ class Transaction extends EventEmitter {
     const change = Bitcoin.BN(total.toBaseUnit()).minus(sendAmount.toBaseUnit()).minus(totalFee).toNumber()
 
     if (change < 0) {
+      // Current UTXO set is not enought to pay for amount + fee. we need to get more UTXO.
+      // If there is no more UTXO. this will throw error
       await this._syncManager.unlockUtxo(false)
-      throw new Error('Negative change value calculated, insufficient funds or not enough utxo' + change)
+      const newAmount = total.add(new Bitcoin(fee, 'base'))
+      const newUtxoSet = await this._syncManager.utxoForAmount(newAmount)
+      return await this._generateRawTx(newUtxoSet, fee, sendAmount, address, changeAddr, weight)
     }
 
     psbt.addOutput({

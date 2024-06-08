@@ -249,31 +249,40 @@ class Electrum extends EventEmitter {
       in: []
     }
 
+    const setHeight = (tx) => {
+      if(!tx.confirmations) {
+        tx.height = 0
+      } else {
+        tx.height = this.block_height - (tx.confirmations - 1)
+      }
+      return tx
+    }
+
     const getOrFetch = async (txid) => {
       if(opts.cache === false) {
-        const data = await this._getTransaction(txid)
+        let data = await this._getTransaction(txid)
+        data = setHeight(data)
         await cache.set(txid, data)
         return data
       }
       const cacheValue = await cache.get(txid)
       if (cacheValue) return cacheValue
-      const data = await this._getTransaction(txid)
+      let data = await this._getTransaction(txid)
+      data = setHeight(data)
       await cache.set(txid, data)
       return data
     }
 
-    const tx = await getOrFetch(txid)
-    if(!tx.confirmations) {
-      data.height = 0
-    } else {
-      data.height = this.block_height - (tx.confirmations - 1)
-    }
+    let tx = await getOrFetch(txid)
+    data.height = tx.height
+
     let totalOut = new Bitcoin(0, 'main')
     data.out = tx.vout.map((vout) => {
       const newvout = this._processTxVout(vout)
       newvout.index = vout.n
       newvout.txid = txid
       totalOut = totalOut.add(newvout.value)
+      newvout.tx_height = tx.height
       return newvout
     })
 
@@ -283,8 +292,10 @@ class Electrum extends EventEmitter {
       const newvin = this._processTxVout(txDetail.vout[vin.vout])
       newvin.prev_txid = vin.txid
       newvin.prev_index = vin.vout
+      newvin.prev_tx_height = txDetail.height
       newvin.txid = txid
       totalIn = totalIn.add(newvin.value)
+      newvin.tx_height = tx.height
       return newvin
     }))
     data.fee = totalIn.minus(totalOut)
@@ -332,7 +343,6 @@ class Electrum extends EventEmitter {
   }
 
   async unsubscribeFromAddress (scriptHash) {
-    console.log('TODO unsubscribe')
   }
 
   isConnected () {

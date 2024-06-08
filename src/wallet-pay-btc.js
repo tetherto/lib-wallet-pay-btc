@@ -251,6 +251,7 @@ class WalletPayBitcoin extends WalletPay {
     path = HdWallet.bumpIndex(path)
     await this._hdWallet.updateLastPath(path)
     await this._syncManager.watchAddress([hash, addr], 'ext')
+    await this._hdWallet.addAddress(addr, 'ext')
     return addr
   }
 
@@ -261,6 +262,7 @@ class WalletPayBitcoin extends WalletPay {
     path = HdWallet.bumpIndex(path)
     await this._hdWallet.updateLastPath(path)
     await this._syncManager.watchAddress([hash, addr], 'in')
+    await this._hdWallet.addAddress(addr, 'in')
     return addr
   }
 

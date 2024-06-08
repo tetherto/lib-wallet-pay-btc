@@ -7,10 +7,7 @@ const {
   BitcoinCurrency
 } = require('./test-helpers.js')
 
-test.test('sendTransaction', { timeout: 600000 }, async function (t) {
-  // TODO: write tests for bad transactions.
-  // TODO: compare balance to make sure is reduced
-  // TODO: tests for mempool transactions
+test.solo('sendTransaction', { timeout: 600000 }, async function (t) {
 
   t.test('create transaction, mine and compare result with electrum', async function (t) {
     const regtest = await regtestNode()
@@ -72,64 +69,100 @@ test.test('sendTransaction', { timeout: 600000 }, async function (t) {
   })
 })
 
-test.solo('balance reduction', { timeout: 600000 }, async function (t) {
-  const test = t.test('balance reduction')
-  test.plan(1)
+test.test('fund new wallet and spend from it. check balances, confirmations', { timeout: 600000 }, async function (t) {
+  // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
+  // In order to pay for the fee, we must utilise the second utxo to pay for fees
   const regtest = await regtestNode()
   t.comment('create new wallet')
   const btcPay = await activeWallet({ newWallet: true })
   const addr = await btcPay.getNewAddress()
   const { result: nodeAddr } = await regtest.getNewAddress()
-
-  t.comment('send 1 btc to new wallet ')
-
-  btcPay.once('new-tx', async function () {
-    t.comment('tx received')
-    const balance = await btcPay.getBalance()
-    const total = balance.pending.add(balance.confirmed)
-    t.ok(total.toString() === '10000000', 'balance added by 0.1 btc')
-    send()
-  })
-
-  async function send() {
-    async function confirmed(){
-      t.comment('tx confirmed')
-      const balance = await btcPay.getBalance()
-      console.log(balance)
-      t.ok(balance.mempool.toNumber() === (sentTx.totalSpent * -1), 'mempool balance is same totalSpent')
-
-    }
-
-    btcPay.once('new-tx', async function () {
-      t.comment('tx detected in mempool')
-      const balance = await btcPay.getBalance()
-      t.ok(balance.mempool.toNumber() === (sentTx.totalSpent * -1), 'mempool balance is same totalSpent')
-      btcPay.on('new-tx', confirmed)
-      t.comment('mining')
-      regtest.mine(1)
-    })
-    const data = {
-      amount : 0.0001,
-      unit: 'main',
-      address: nodeAddr,
-      fee:(Math.random() * 1000).toFixed()
-    }
-    console.log('sending amount', data)
-    const sentTx = await btcPay.sendTransaction({}, data)
-    console.log(sentTx)
+  t.comment('sending utxo to wallet')
+  const { result: utxo1 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  const { result : utxo2 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  t.comment('waiting for confirmation')
+  await btcPay._onNewTx()
+  await regtest.mine(1)
+  await btcPay._onNewTx()
+  await regtest.mine(1)
+  await btcPay._onNewTx()
+  let balance = await btcPay.getBalance()
+  t.ok(balance.confirmed.toNumber() === 20000000, 'balance added by 0.2 btc')
+  const data = {
+    amount : 0.1,
+    unit: 'main',
+    address: nodeAddr,
+    fee: 10
   }
+  const res = await btcPay.sendTransaction({}, data)
+  const spentAmount = res.totalSpent * -1
+  const totalBal = 20000000 
+  t.comment('waiting for confirmation')
+  await btcPay._onNewTx()
+  await regtest.mine(1)
+  t.comment('checking balance transitions')
+  let bb = await btcPay.getBalance()
+  t.ok(bb.mempool.toNumber() === spentAmount, 'mempool balance is negative of totalSpent')
+  t.ok(bb.pending.toNumber() === 0, 'pending balance is 0')
+  t.ok(bb.confirmed.toNumber() === totalBal, 'confirmed  balance is 0.2')
+  await btcPay._onNewTx()
+  bb = await btcPay.getBalance()
+  t.ok(bb.mempool.toNumber() === 0, 'mempool balance is 0')
+  t.ok(bb.pending.toNumber() === spentAmount, 'pending balance is negative of totalSpent')
+  t.ok(bb.confirmed.toNumber() === totalBal, 'confirmed balance is 0.2')
+  await regtest.mine(1)
+  await btcPay._onNewTx()
+  bb = await btcPay.getBalance()
+  t.ok(bb.mempool.toNumber() === 0, 'mempool balance is 0')
+  t.ok(bb.pending.toNumber() === 0, 'pending balance is 0')
+  const confirmedBal = totalBal - res.totalSpent
+  t.ok(bb.confirmed.toNumber() === confirmedBal, 'confirmed balance is '+confirmedBal)
 
-  const pass = promiseSteps(['mempool', 'pending', 'confirmed'])
-  await btcPay.syncTransactions()
-  await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
-  t.comment('mining blocks')
-  await regtest.mine(3)
-
-  await test
+  const utxoset = res.utxo.filter((utxo, i) => {
+    if([utxo1, utxo2].includes(utxo.txid)) {
+      return false
+    }
+    return true
+  })
+  t.ok(utxoset.length === 0, 'all utxos used for tx')
   await btcPay.destroy()
-
-  test.pass('done')
-  console.log(111)
-
 })
+
+test.test('Spending whole UTXO for amount and not enough funds to pay for fees', { timeout: 600000 }, async function (t) {
+  // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
+  // In order to pay for the fee, we must utilise the second utxo to pay for fees
+  const regtest = await regtestNode()
+  t.comment('create new wallet')
+  const btcPay = await activeWallet({ newWallet: true })
+  const addr = await btcPay.getNewAddress()
+  const { result: nodeAddr } = await regtest.getNewAddress()
+  t.comment('sending utxo to wallet')
+  const { result: utxo1 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  const { result : utxo2 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  t.comment('waiting for confirmation')
+  await btcPay._onNewTx()
+  await regtest.mine(1)
+  await btcPay._onNewTx()
+  await regtest.mine(1)
+  await btcPay._onNewTx()
+  let balance = await btcPay.getBalance()
+  t.ok(balance.confirmed.toNumber() === 20000000, 'balance added by 0.2 btc')
+  const data = {
+    amount : 0.2,
+    unit: 'main',
+    address: nodeAddr,
+    fee: 10
+  }
+  try {
+    const res = await btcPay.sendTransaction({}, data)
+  } catch(err) {
+    t.ok(err.message.includes('insufficient funds'), ' should insufficient funds')
+    await btcPay.destroy()
+    t.end()
+    return
+
+  }
+  t.fail('should have thrown error')
+})
+
 

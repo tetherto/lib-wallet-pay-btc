@@ -36,6 +36,14 @@ class HdWallet {
     return this.store.close()
   }
 
+  addAddress(addr) {
+    return this.store.put('addr:'+ addr.address , addr)
+  }
+
+  getAddress(addr, addrType) {
+    return this.store.get('addr:'+ addr)
+  }
+
   _formatAccountPath (path) {
     const parsed = HdWallet.parsePath(path)
     return [
