@@ -201,13 +201,20 @@ class SyncManager extends EventEmitter {
       await _addr.newAddress(addr.address)
     }
 
-    await _addr.storeTxHistory(txHistory)
 
-    await Promise.all(txHistory.map(async (tx) => {
+    txHistory = await Promise.all(txHistory.map(async (tx) => {
       const txState = this._getTxState(tx)
       await this._processUtxo(tx.out, 'out', txState, tx.fee, addr, tx.txid)
       await this._processUtxo(tx.in, 'in', txState, 0, addr, tx.txid)
+
+      if(tx.height === 0 && !tx.mempool_first_seen) {
+        tx.mempool_ts = Date.now()
+      }
+      tx.wallet_address = addr.address
+
+      return tx
     }))
+    await _addr.storeTxHistory(txHistory)
   }
 
   /**
@@ -312,8 +319,10 @@ class SyncManager extends EventEmitter {
     return Promise.all(utxoList.map(async (utxo) => {
 
       // set public keys for utxo, as they will be needed for signing tx
-      utxo.address_public_key = addr.publicKey
-      utxo.address_path = addr.path
+      if(utxo.address === addr.address) {
+        utxo.address_public_key = addr.publicKey
+        utxo.address_path = addr.path
+      }
 
       const bal = await _addr.get(utxo.address)
       if (utxo.address !== addr.address || !bal) return

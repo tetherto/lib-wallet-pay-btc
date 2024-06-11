@@ -64,7 +64,6 @@ class Balance {
 }
 
 const MAX_BLOCK_SIZE = 100
-
 class AddressManager {
   constructor (config) {
     // @desc: address store that keeps track of balances
@@ -155,8 +154,12 @@ class AddressManager {
   */
   async _removeFromMempool (txid) {
     let mp = await this.history.get('i:' + 0) || []
+    const meta = {}
+    let mpx = null
+
     for (const x in mp) {
-      if (mp[x].txid === txid) {
+      mpx = mp[x]
+      if (mpx.txid === txid) {
         mp.splice(x, 1)
         break
       }
@@ -164,7 +167,8 @@ class AddressManager {
     if(mp.length === 0) {
       mp = null
     } 
-    return this.history.put('i:' + 0, mp)
+    await this.history.put('i:' + 0, mp)
+    return mpx
   }
 
   /**
@@ -181,7 +185,11 @@ class AddressManager {
           continue
         }
       }
-      await this._removeFromMempool(tx.txid)
+      const mtx = await this._removeFromMempool(tx.txid)
+      if(mtx) {
+        tx.mempool_ts = mtx.mempool_ts
+        tx.wallet_address = mtx.wallet_address
+      }
       heightTx.push(tx)
       await this.history.put('i:' + tx.height, heightTx)
     }
@@ -190,6 +198,7 @@ class AddressManager {
   getMempoolTx() {
     return this.history.get('i:' + 0)
   }
+
 
   /**
   * @desc et transaction history from history store

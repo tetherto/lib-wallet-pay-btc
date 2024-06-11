@@ -7,7 +7,7 @@ const {
   BitcoinCurrency
 } = require('./test-helpers.js')
 
-test.solo('sendTransaction', { timeout: 600000 }, async function (t) {
+test.test('sendTransaction', { timeout: 600000 }, async function (t) {
 
   t.test('create transaction, mine and compare result with electrum', async function (t) {
     const regtest = await regtestNode()
@@ -69,7 +69,7 @@ test.solo('sendTransaction', { timeout: 600000 }, async function (t) {
   })
 })
 
-test.test('fund new wallet and spend from it. check balances, confirmations', { timeout: 600000 }, async function (t) {
+test.solo('fund new wallet and spend from it. check balances, confirmations', { timeout: 600000 }, async function (t) {
   // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
   // In order to pay for the fee, we must utilise the second utxo to pay for fees
   const regtest = await regtestNode()

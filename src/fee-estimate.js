@@ -1,6 +1,6 @@
 class MempoolSpace {
   constructor (config) {
-    this.hostname = config.hostnmae || 'mempool.aaa'
+    this.hostname = config.hostname || 'mempool.space'
     this.path = config.path || '/api/v1/fees/recommended'
 
     this._latest = null

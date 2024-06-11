@@ -7,7 +7,7 @@ const ADDRESS_TYPES = {
 }
 
 /**
-  * @desc: Class to manage HD wallet paths
+  * @desc: Class to manage HD wallet paths only supports 84' paths'
   * @link: https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki
   * @desc:  m / purpose' / coin_type' / account' / change / address_index
   */

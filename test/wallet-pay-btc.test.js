@@ -143,7 +143,7 @@ test('getNewAddress - address reuse logic', async (t) => {
   await btcPay2.destroy()
 })
 
-test('getTransactions', async (t) => {
+solo('getTransactions', async (t) => {
   const btcPay = await activeWallet()
 
   t.comment('syncing transactions')
@@ -159,6 +159,7 @@ test('getTransactions', async (t) => {
       return
     }
     t.ok(last < h, 'tx height is in descending order height: ' + h)
+    t.ok(tx.wallet_address, 'tx has wallet address')
     last = h
     c++
     if(c === max) {
