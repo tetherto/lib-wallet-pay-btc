@@ -15,7 +15,6 @@ const {
 
 test.configure({ timeout: 60000 })
 
-
 test('Create an instances of WalletPayBitcoin', async function (t) {
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
