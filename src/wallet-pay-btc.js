@@ -331,7 +331,6 @@ class WalletPayBitcoin extends WalletPay {
       })
       
       tx.send(outgoing).then((sent)=>{
-        console.log('sent', notify)
         if(notify) notify(sent)
         this._syncManager.watchTxMempool(sent.txid)
         this._syncManager.on('tx:mempool:'+sent.txid, () => {
@@ -345,9 +344,7 @@ class WalletPayBitcoin extends WalletPay {
     p.broadcasted  = (fn) => {
       notify = fn
     }
-
     return p
-    
   }
 
   isValidAddress (opts, address) {
