@@ -128,9 +128,7 @@ test.test('fund new wallet and spend from it. check balances, confirmations', { 
   await btcPay.destroy()
 })
 
-test.test('Spending whole UTXO for amount and not enough funds to pay for fees', { timeout: 600000 }, async function (t) {
-  // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
-  // In order to pay for the fee, we must utilise the second utxo to pay for fees
+test.test('Spending whole UTXO for amount, not enough to pay for fees', { timeout: 600000 }, async function (t) {
   const regtest = await regtestNode()
   t.comment('create new wallet')
   const btcPay = await activeWallet({ newWallet: true })
@@ -165,7 +163,7 @@ test.test('Spending whole UTXO for amount and not enough funds to pay for fees',
   t.fail('should have thrown error')
 })
 
-test.test('perform 2 transactions from 1 utxo before confirmation', { timeout: 600000 }, async function (t) {
+test.test('perform 2 transactions from 1 utxo before confirmation. Spending from change address', { timeout: 600000 }, async function (t) {
   // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
   // In order to pay for the fee, we must utilise the second utxo to pay for fees
   const regtest = await regtestNode()
@@ -196,6 +194,7 @@ test.test('perform 2 transactions from 1 utxo before confirmation', { timeout: 6
   const tx1 = await txp
   let bal = await btcPay.getBalance()
   t.ok(bal.mempool.toNumber() * -1 === tx1.totalSpent, 'mempool balance matches total spent for tx 1')
+  // We send second transaction spending change amount
   const txp2 = btcPay.sendTransaction({}, data)
   txp2.broadcasted((tx) => {
     t.comment(`sent tx 2: ${tx.txid}`)

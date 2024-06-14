@@ -12,7 +12,6 @@
     "lib-wallet-pay-btc": "github:rbndg/lib-wallet-pay-btc",
     "lib-wallet-store": "github:rbndg/lib-wallet-store",
     "tiny-secp256k1": "2.2.3",
-    "wallet": "github:rbndg/lib-wallet",
     "wallet-seed-bip39": "github:rbndg/lib-wallet-seed-bip39"
   },
   "devDependencies": {
@@ -24,8 +23,7 @@
     "test:all": "brittle ./test/*.js",
     "test:sync": "brittle ./test/sync-manager.test.js",
     "test:send-tx": "brittle ./test/transactions.test.js",
-    "test:pay": "brittle ./test/wallet-pay-btc.test.js",
-    "test:electrum": "brittle ./test/*.js"
+    "test:pay": "brittle ./test/wallet-pay-btc.test.js"
   },
   "repository": {
     "type": "git",

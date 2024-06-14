@@ -311,6 +311,11 @@ class SyncManager extends EventEmitter {
     this.emit('sync-end')
   }
 
+  /**
+  * @description get balance for an address
+  * @param {String} addr optional address if you want to pass in address to get its balance
+  * @return {Promise}
+  * */
   async getBalance (addr) {
     let total
     if (!addr) {

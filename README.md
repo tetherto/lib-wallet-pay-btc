@@ -2,7 +2,7 @@
 
 Bitcoin payment method for the wallet library. Powered by Electrum.
 
-## Example
+## Usage
 
 ```javascript
 // Start with a storage engine
@@ -22,7 +22,8 @@ await provider.connect()
 
 // Start new Bitcoin wallet
 const btcPay = new BitcoinPay({
-  // Asset name is a unique key for the asset, allow multiple assets of same type per wallet
+  // Asset name is a unique key for the assets
+  // allow multiple assets of same type per wallet
   asset_name: 'btc',
   // Electrum provider.
   provider,
@@ -43,7 +44,8 @@ const btcPay = new BitcoinPay({
 await btcPay.initialize({})
 
 // Listen to each path that has transactions.
-// This wallet follow BIP84 standard for address generation and the gap limit by default is 20.
+// This wallet follow BIP84 standard for address generation and 
+// the gap limit by default is 20.
 btcPay.on('sync-path', (pathType, path, hasTx, progress) => {
   console.log('Syncing path', pathType, path, hasTx, progress)
 })
@@ -51,10 +53,16 @@ btcPay.on('sync-path', (pathType, path, hasTx, progress) => {
 // Parse blockchain for transactions to your wallet.
 // This needs to be run when recreating a wallet. 
 // This can take long depending on the number of addresses a wallet has created.
-await btcPay.syncTransactions({ 
+const pay = btcPay.syncTransactions({ 
   reset : false // Passing true will resync from scratch 
 })
 
+pay.broadcasted((tx)=>{
+  // transaction is broadcasted but not updated insternal state
+})
+
+const tx = await pay
+// transaction has been broadcasted and internal state is updated 
 
 // Pause the sync process. 
 // If the application needs to sleep and come back to resume syncing.
