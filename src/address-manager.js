@@ -101,6 +101,8 @@ class AddressManager {
   }
 
   async newAddress (addr) {
+    const exist = await this.get(addr)
+    if(exist) return exist
     const data = this._newAddr()
     await this.store.put(addr, data)
     return data
@@ -188,7 +190,6 @@ class AddressManager {
       const mtx = await this._removeFromMempool(tx.txid)
       if(mtx) {
         tx.mempool_ts = mtx.mempool_ts
-        tx.wallet_address = mtx.wallet_address
       }
       heightTx.push(tx)
       await this.history.put('i:' + tx.height, heightTx)

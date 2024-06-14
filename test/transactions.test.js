@@ -69,7 +69,7 @@ test.test('sendTransaction', { timeout: 600000 }, async function (t) {
   })
 })
 
-test.solo('fund new wallet and spend from it. check balances, confirmations', { timeout: 600000 }, async function (t) {
+test.test('fund new wallet and spend from it. check balances, confirmations', { timeout: 600000 }, async function (t) {
   // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
   // In order to pay for the fee, we must utilise the second utxo to pay for fees
   const regtest = await regtestNode()
@@ -163,6 +163,48 @@ test.test('Spending whole UTXO for amount and not enough funds to pay for fees',
 
   }
   t.fail('should have thrown error')
+})
+
+test.test('perform 2 transactions from 1 utxo before confirmation', { timeout: 600000 }, async function (t) {
+  // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
+  // In order to pay for the fee, we must utilise the second utxo to pay for fees
+  const regtest = await regtestNode()
+  t.comment('create new wallet')
+  const btcPay = await activeWallet({ newWallet: true })
+  const addr = await btcPay.getNewAddress()
+  const { result: nodeAddr } = await regtest.getNewAddress()
+  t.comment('sending utxo to wallet')
+  const { result: utxo1 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  t.comment('waiting for confirmation')
+  await btcPay._onNewTx()
+  await regtest.mine(1)
+  await btcPay._onNewTx()
+  await regtest.mine(1)
+  await btcPay._onNewTx()
+  let balance = await btcPay.getBalance()
+  t.ok(balance.confirmed.toNumber() === 10000000, 'balance added by 0.1 btc')
+  const data = {
+    amount : 0.02,
+    unit: 'main',
+    address: nodeAddr,
+    fee: 10
+  }
+  const txp = btcPay.sendTransaction({}, data)
+  txp.broadcasted((tx) => {
+    t.comment(`sent tx 1: ${tx.txid}`)
+  })
+  const tx1 = await txp
+  let bal = await btcPay.getBalance()
+  t.ok(bal.mempool.toNumber() * -1 === tx1.totalSpent, 'mempool balance matches total spent for tx 1')
+  const txp2 = btcPay.sendTransaction({}, data)
+  txp2.broadcasted((tx) => {
+    t.comment(`sent tx 2: ${tx.txid}`)
+  })
+  const tx2 = await txp2
+  bal = await btcPay.getBalance()
+  const totalSent = tx1.totalSpent + tx2.totalSpent
+  t.ok(bal.mempool.toNumber() * -1 === totalSent, 'mempool balance matches total spent for tx1 + tx2')
+  await btcPay.destroy()
 })
 
 

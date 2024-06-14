@@ -40,7 +40,7 @@ class HdWallet {
     return this.store.put('addr:'+ addr.address , addr)
   }
 
-  getAddress(addr, addrType) {
+  getAddress(addr) {
     return this.store.get('addr:'+ addr)
   }
 

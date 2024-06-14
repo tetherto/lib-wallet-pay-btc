@@ -12,6 +12,7 @@ class VinVout {
 
   async push (utxo) {
     const key = this.vtype === 'vout' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
+    if(await this.store.get(key)) return 
     return this.store.put(key, utxo)
   }
 
@@ -135,7 +136,6 @@ class UnspentStore {
     let total = new Bitcoin(0, amount.type)
     const utxo = []
     let done = false
-
 
     await this.vout.entries(async (v) => {
       if (this.locked.includes(v.txid) || done) return

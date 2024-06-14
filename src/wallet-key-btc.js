@@ -3,8 +3,6 @@ const ecc = require('tiny-secp256k1')
 const bip32 = BIP32Factory(ecc)
 const bitcoin = require('bitcoinjs-lib')
 
-// TODO:
-// [] unit tests
 
 class WalletKeyBitcoin {
   constructor (config = {}) {
@@ -26,7 +24,6 @@ class WalletKeyBitcoin {
     this.network = bitcoin.networks[network]
   }
   
-  // Custom inspect method
   close() {
     this.seed = null 
     this.bip32 = null

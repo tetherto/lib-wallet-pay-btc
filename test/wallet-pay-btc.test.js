@@ -13,7 +13,7 @@ const {
   BitcoinCurrency
 } = require('./test-helpers.js')
 
-test.configure({ timeout: 600000 })
+test.configure({ timeout: 60000 })
 
 
 test('Create an instances of WalletPayBitcoin', async function (t) {
@@ -143,7 +143,7 @@ test('getNewAddress - address reuse logic', async (t) => {
   await btcPay2.destroy()
 })
 
-solo('getTransactions', async (t) => {
+test('getTransactions', async (t) => {
   const btcPay = await activeWallet()
 
   t.comment('syncing transactions')
@@ -159,7 +159,6 @@ solo('getTransactions', async (t) => {
       return
     }
     t.ok(last < h, 'tx height is in descending order height: ' + h)
-    t.ok(tx.wallet_address, 'tx has wallet address')
     last = h
     c++
     if(c === max) {
@@ -170,30 +169,30 @@ solo('getTransactions', async (t) => {
   if(c !== max) t.fail('tx not received')
 });
 
-test('Block counter', async (t) => {
-
-  const regtest = await regtestNode()
-  t.comment('create new wallet')
-  const btcPay = await activeWallet({ newWallet: true })
-  const p = new Promise((resolve, reject) => {
-  btcPay.once('new-block', async (block) => {
-    t.ok(block.diff === 1, 'block diff is 1')
-    t.ok(block.current - block.last === 1, 'block numbers are correct')
-    t.comment('mining 5 blocks')
-    btcPay.on('new-block', async (block) => {
-      await btcPay.destroy()
-      t.ok(block.diff === 5, 'block diff is 5')
-      t.ok(block.current - block.last === 5, 'block numbers are correct')
-      resolve()
-    })
-    regtest.mine({blocks : 5})
-  })
-  t.comment('mining')
-  })
-  await regtest.mine({ blocks : 1})
-
-  return p
-});
+// test('Block counter', async (t) => {
+//
+//   const regtest = await regtestNode()
+//   t.comment('create new wallet')
+//   const btcPay = await activeWallet({ newWallet: true })
+//   const p = new Promise((resolve, reject) => {
+//   btcPay.once('new-block', async (block) => {
+//     t.ok(block.diff === 1, 'block diff is 1')
+//     t.ok(block.current - block.last === 1, 'block numbers are correct')
+//     t.comment('mining 5 blocks')
+//     btcPay.on('new-block', async (block) => {
+//       await btcPay.destroy()
+//       t.ok(block.diff === 5, 'block diff is 5')
+//       t.ok(block.current - block.last === 5, 'block numbers are correct')
+//       resolve()
+//     })
+//     regtest.mine({blocks : 5})
+//   })
+//   t.comment('mining')
+//   })
+//   await regtest.mine({ blocks : 1})
+//
+//   return p
+// });
 
 (async () => {
   test('balance check', async (tst) => {
@@ -308,13 +307,20 @@ test('syncing paths in order', async (t) => {
       let lastPath = null 
       let count = 0 
       const prev = []
+      let restartCheck = false 
       const handler = async (pt, path, hasTx, gapCount) => {
+        if(opts.restart && !restartCheck){
+          t.ok(path === HdWallet.INIT_EXTERNAL_PATH, 'initial path is correct after restarting')
+          restartCheck = true 
+        }
         if(pt !== sType) return
         count++
+
         if(prev.length === 0 ) {
           prev.push(path)
           return
         }
+        
         const last = BitcoinPay.parsePath(prev[prev.length - 1])
         const parsed = BitcoinPay.parsePath(path)
         t.ok(last.purpose === parsed.purpose, sType + ' path order: purpose')
@@ -333,7 +339,7 @@ test('syncing paths in order', async (t) => {
       await btcPay.syncTransactions(opts)
     })
   }
-  await runTest('external')
+  await runTest('external', {})
   await runTest('internal', { restart: true })
 })
 

@@ -160,10 +160,10 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   async destroy () {
-    await this.pauseSync()
     await this.provider.close()
-    await this.state.store.close()
+    await this.pauseSync()
     await this._syncManager.close()
+    await this.state.store.close()
     await this._hdWallet.close()
     await this.keyManager.close()
     await this._postDestroy()
@@ -259,7 +259,7 @@ class WalletPayBitcoin extends WalletPay {
     path = HdWallet.bumpIndex(path)
     await this._hdWallet.updateLastPath(path)
     await this._syncManager.watchAddress([hash, addr], 'ext')
-    await this._hdWallet.addAddress(addr, 'ext')
+    await this._hdWallet.addAddress(addr)
     return addr
   }
 
@@ -270,7 +270,7 @@ class WalletPayBitcoin extends WalletPay {
     path = HdWallet.bumpIndex(path)
     await this._hdWallet.updateLastPath(path)
     await this._syncManager.watchAddress([hash, addr], 'in')
-    await this._hdWallet.addAddress(addr, 'in')
+    await this._hdWallet.addAddress(addr)
     return addr
   }
 
@@ -319,16 +319,34 @@ class WalletPayBitcoin extends WalletPay {
   // @param {String} outgoing.amount - amount to send
   // @param {String} outgoing.unit - unit of amount
   // @param {String} outgoing.fee - fee to pay in sat/vbyte. example: 10,
-  async sendTransaction (opts, outgoing) {
-    const tx = new Transaction({
-      network: this.network,
-      provider: this.provider,
-      keyManager: this.keyManager,
-      getInternalAddress: this._getInternalAddress.bind(this),
-      syncManager: this._syncManager
+  sendTransaction (opts, outgoing) {
+    let notify 
+    const p = new Promise((resolve, reject) => {
+      const tx = new Transaction({
+        network: this.network,
+        provider: this.provider,
+        keyManager: this.keyManager,
+        getInternalAddress: this._getInternalAddress.bind(this),
+        syncManager: this._syncManager
+      })
+      
+      tx.send(outgoing).then((sent)=>{
+        console.log('sent', notify)
+        if(notify) notify(sent)
+        this._syncManager.watchTxMempool(sent.txid)
+        this._syncManager.on('tx:mempool:'+sent.txid, () => {
+          resolve(sent)
+        })
+      }).catch((err) => {
+        reject(err)
+      })
     })
-    
-    return tx.send(outgoing)
+
+    p.broadcasted  = (fn) => {
+      notify = fn
+    }
+
+    return p
     
   }
 

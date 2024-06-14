@@ -1,6 +1,6 @@
 const { Currency } = require('lib-wallet')
 
-const BN = Currency._BN
+const BN = Currency.BN
 
 class Bitcoin extends Currency {
 
@@ -23,11 +23,11 @@ class Bitcoin extends Currency {
   }
 
   static toBaseUnit(amount, decimal) {
-    return new BN(amount).shiftedBy(decimal).toString()
+    return BN(amount).shiftedBy(decimal).toString()
   }
 
   static toMainUnit(amount, decimal) {
-    return new BN(amount).shiftedBy(decimal * -1).dp(decimal).toString()
+    return BN(amount).shiftedBy(decimal * -1).dp(decimal).toString()
   }
 
   toString() {

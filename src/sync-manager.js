@@ -27,6 +27,8 @@ class SyncManager extends EventEmitter {
 
     // @desc: max number of script hashes to watch
     this._max_script_watch = config.max_script_watch || 10
+
+    this._tx_events = []
     this.reset()
   }
 
@@ -83,6 +85,7 @@ class SyncManager extends EventEmitter {
       await state.getWatchedScriptHashes('ext')
     )
     provider.on('new-tx', async (changeHash) => {
+      if(this._halt) return
       await this._updateScriptHashBalance(changeHash)
       this.emit('new-tx')
     })
@@ -97,10 +100,11 @@ class SyncManager extends EventEmitter {
     const extlist = await state.getWatchedScriptHashes('ext')
 
     const process = async (data) => {
-      await Promise.all(data.map(async ([scripthash, addr, path, balHash]) => {
+      await Promise.all(data.map(async ([scripthash, balHash]) => {
         if (changeHash === balHash) return
-        const txHistory = await provider.getAddressHistory({ cache: false },scripthash)
-        await this._processHistory(addr, txHistory)
+        if(this._halt) return
+        const txHistory = await provider.getAddressHistory({ cache: false }, scripthash)
+        await this._processHistory(txHistory)
       }))
     }
 
@@ -117,7 +121,8 @@ class SyncManager extends EventEmitter {
   * @description watch address for changes and save to store for when lib is resumed 
   **/
   async watchAddress ([scriptHash, addr], addrType) {
-    const { state, _max_script_watch: maxScriptWatch, provider } = this
+    const { state, _max_script_watch: maxScriptWatch, provider, _addr } = this
+    await _addr.newAddress(addr.address)
     const hashList = await state.getWatchedScriptHashes(addrType)
     if (hashList.length >= maxScriptWatch) {
       hashList.shift()
@@ -126,7 +131,7 @@ class SyncManager extends EventEmitter {
     if (balHash?.message) {
       throw new Error('Failed to subscribe to address ' + balHash.message)
     }
-    hashList.push([scriptHash, addr, addr.path, balHash])
+    hashList.push([scriptHash, balHash])
     await state.addWatchedScriptHashes(hashList, addrType)
   }
 
@@ -141,6 +146,27 @@ class SyncManager extends EventEmitter {
       return 
     }
     this.currentBlock = block
+  }
+
+
+  /**
+   * @desc emit event for a txid when found in mempool 
+   *
+  **/
+  watchTxMempool(txid) {
+    if(this._tx_events.includes(txid)) return 
+    this._tx_events.push(txid)
+  }
+
+  /** 
+   * @desc fire event for tx being watched 
+   **/
+  _emitTxEvent(tx) {
+    const index = this._tx_events.indexOf(tx.txid);
+    if((tx.height  === 0) && index >= 0){
+      this._tx_events.splice(index,1)
+      this.emit('tx:mempool:'+tx.txid, tx)
+    }
   }
 
   /**
@@ -167,9 +193,7 @@ class SyncManager extends EventEmitter {
     const processTx = async (inout, tx) => {
       await Promise.all(tx[inout].map(async (utxo) => {
         // We get the address object from hdWallet, as it will be needed for signing tx
-        const addr = await this.hdWallet.getAddress(utxo.address)
-        if(!addr) return
-        return this._processHistory(addr, [tx])
+        return this._processHistory([tx])
       }))
     }
 
@@ -192,29 +216,26 @@ class SyncManager extends EventEmitter {
   * @param {Array} txHistory transaction history
   * @return {Promise}
   * */
-  async _processHistory (addr, txHistory) {
+  async _processHistory (txHistory) {
     const { _addr } = this
-
-    const dbAddr = await _addr.get(addr.address)
-
-    if (!dbAddr) {
-      await _addr.newAddress(addr.address)
-    }
 
 
     txHistory = await Promise.all(txHistory.map(async (tx) => {
       const txState = this._getTxState(tx)
-      await this._processUtxo(tx.out, 'out', txState, tx.fee, addr, tx.txid)
-      await this._processUtxo(tx.in, 'in', txState, 0, addr, tx.txid)
+      await this._processUtxo(tx.out, 'out', txState, tx.fee, tx.txid)
+      await this._processUtxo(tx.in, 'in', txState, 0, tx.txid)
 
       if(tx.height === 0 && !tx.mempool_first_seen) {
         tx.mempool_ts = Date.now()
       }
-      tx.wallet_address = addr.address
 
       return tx
     }))
     await _addr.storeTxHistory(txHistory)
+
+    txHistory.forEach((tx) => {
+      this._emitTxEvent(tx)
+    })
   }
 
   /**
@@ -228,13 +249,18 @@ class SyncManager extends EventEmitter {
     }
     let hasTx = false
     const [scriptHash, addr] = keyManager.pathToScriptHash(path, HdWallet.getAddressType(path))
-    const txHistory = await provider.getAddressHistory({} ,scriptHash)
+    let txHistory 
+    try {
+      txHistory = await provider.getAddressHistory({}, scriptHash)
+    } catch(e) {
+      return [false, null, null, null]
+    }
 
     if (Array.isArray(txHistory) && txHistory.length === 0) {
       // increase gap count if address has no tx
       gapCount++
     } else {
-      await this._processHistory(addr, txHistory)
+      await this._processHistory(txHistory)
       gapEnd++
       gapCount = 0
       hasTx = true
@@ -313,21 +339,19 @@ class SyncManager extends EventEmitter {
   * @param {String} txid transaction id
   * @return {Promise}
   * */
-  async _processUtxo (utxoList, inout, txState, txFee = 0, addr, txid) {
-    const { _addr, _total } = this
+  async _processUtxo (utxoList, inout, txState, txFee = 0, txid) {
+    const { _addr, _total, hdWallet } = this
 
     return Promise.all(utxoList.map(async (utxo) => {
 
-      // set public keys for utxo, as they will be needed for signing tx
-      if(utxo.address === addr.address) {
-        utxo.address_public_key = addr.publicKey
-        utxo.address_path = addr.path
-      }
-
       const bal = await _addr.get(utxo.address)
-      if (utxo.address !== addr.address || !bal) return
+      const addr = await hdWallet.getAddress(utxo.address)
+      if(!bal || !addr) return 
       // point is the txid:vout index. Unique id for utxo
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
+      // set public keys for utxo, as they will be needed for signing tx
+      utxo.address_public_key = addr.publicKey
+      utxo.address_path = addr.path
       
       // update balance of each tx state. mempool, confirmed, pending
       // add txid to txid list for each state
