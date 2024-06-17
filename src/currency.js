@@ -1,6 +1,6 @@
 const { Currency } = require('lib-wallet')
 
-const BN = Currency.BN
+const BN = Currency._BN
 
 class Bitcoin extends Currency {
 
@@ -22,66 +22,12 @@ class Bitcoin extends Currency {
     return Bitcoin.toMainUnit(this.amount, this.decimal_places)
   }
 
-  static toBaseUnit(amount, decimal) {
-    return BN(amount).shiftedBy(decimal).toString()
+  isBitcoin(amount) {
+    return this.isUnitOf(amount)
   }
 
-  static toMainUnit(amount, decimal) {
-    return BN(amount).shiftedBy(decimal * -1).dp(decimal).toString()
-  }
-
-  toString() {
-    return this.amount.toString()
-  }
-
-  toNumber() {
-    return +this.amount
-  }
-
-  isBitcoin(btc) {
+  isUnitOf(btc) {
     if(!(btc instanceof Bitcoin)) throw new Error("Amount must be an instance of Bitcoin")
-  }
-
-  abs() {
-    this.amount = Math.abs(this.amount)
-    return this
-  }
-  
-  minus(amount) {
-    this.isBitcoin(amount)
-    let thisBase = this.toBaseUnit()
-    let amountBase = amount.toBaseUnit()
-    let total = new BN(thisBase).minus(amountBase)
-    return new Bitcoin(total, 'base', this.config)
-  }
-
-  add(amount) {
-    this.isBitcoin(amount)
-    let thisBase = this.toBaseUnit()
-    let amountBase = amount.toBaseUnit()
-    let total = new BN(thisBase).plus(amountBase)
-    return new Bitcoin(total, 'base', this.config)
-  }
-
-  lte(amount) {
-    this.isBitcoin(amount)
-    let thisBase = this.toBaseUnit()
-    let amountBase = amount.toBaseUnit()
-    return new BN(thisBase).lte(amountBase)
-  }
-
-  eq(amount) {
-    this.isBitcoin(amount)
-    let thisBase = this.toBaseUnit()
-    let amountBase = amount.toBaseUnit()
-    return new BN(thisBase).eq(amountBase)
-  }
-
-  gte(amount) {
-    this.isBitcoin(amount)
-    let thisBase = this.toBaseUnit()
-    let amountBase = amount.toBaseUnit()
-    return new BN(thisBase).gte(amountBase)
   }
 
   bn(unit) {
