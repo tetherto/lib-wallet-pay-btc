@@ -5,10 +5,8 @@ const {
   KeyManager,
   BIP39Seed,
   newElectrum,
-  HdWallet,
   activeWallet,
   regtestNode,
-  pause,
   promiseSteps,
   BitcoinCurrency
 } = require('./test-helpers.js')
@@ -92,7 +90,7 @@ test('getNewAddress - address reuse logic', async (t) => {
   })
   await btcPay.initialize({})
   const lastExt = await btcPay._hdWallet.getLastExtPath()
-  t.ok(lastExt === HdWallet.INIT_EXTERNAL_PATH, 'first instance last external path is the default path when created')
+  t.ok(lastExt === btcPay._hdWallet.INIT_EXTERNAL_PATH, 'first instance last external path is the default path when created')
   const addr = await btcPay.getNewAddress()
   const amount = 0.0001
   await regtest.sendToAddress({ address: addr.address, amount })
@@ -121,7 +119,7 @@ test('getNewAddress - address reuse logic', async (t) => {
   })
   await btcPay2.initialize({})
   const lastExt2 = await btcPay2._hdWallet.getLastExtPath()
-  t.ok(lastExt2 === HdWallet.INIT_EXTERNAL_PATH, 'second instance last path is the default path when created')
+  t.ok(lastExt2 === btcPay2._hdWallet.INIT_EXTERNAL_PATH, 'second instance last path is the default path when created')
   _pathBalanceChecked = true
   btcPay2.once('synced-path', async (pt, path, hasTx) => {
     t.ok(path === addr.path, 'second instance synced path matches address path')
@@ -309,7 +307,7 @@ test('syncing paths in order', async (t) => {
       let restartCheck = false 
       const handler = async (pt, path, hasTx, gapCount) => {
         if(opts.restart && !restartCheck){
-          t.ok(path === HdWallet.INIT_EXTERNAL_PATH, 'initial path is correct after restarting')
+          t.ok(path === btcPay._hdWallet.INIT_EXTERNAL_PATH, 'initial path is correct after restarting')
           restartCheck = true 
         }
         if(pt !== sType) return

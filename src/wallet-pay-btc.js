@@ -1,7 +1,6 @@
-const { WalletPay } = require('lib-wallet')
+const { WalletPay, HdWallet } = require('lib-wallet')
 const { EventEmitter, once } = require('events')
 const Transaction = require('./transaction.js')
-const HdWallet = require('./hdwallet.js')
 const SyncManager = require('./sync-manager.js')
 const Bitcoin = require('./currency')
 
@@ -157,6 +156,7 @@ class WalletPayBitcoin extends WalletPay {
     this.ready = false
     this.currency = Bitcoin
     this.keyManager = config.key_manager || null
+    this._addressType = 'p2wpkh'
   }
 
   async destroy () {
@@ -190,7 +190,9 @@ class WalletPayBitcoin extends WalletPay {
     }
     
     this._hdWallet = new HdWallet({ 
-      store: this.store.newInstance({ name: 'hdwallet' }) 
+      store: this.store.newInstance({ name: 'hdwallet' }),
+      coinType: "0'",
+      purpose: "84'",
     })
     this.state = new StateDb({
       store: this.store.newInstance({ name: 'state' })
@@ -210,7 +212,8 @@ class WalletPayBitcoin extends WalletPay {
       keyManager: this.keyManager,
       currentBlock: this.latest_block,
       minBlockConfirm: this.min_block_confirm,
-      store: this.store
+      store: this.store,
+      addressType: this._addressType
     })
 
     this.block = new BlockCounter({ state : this.state })
@@ -254,7 +257,7 @@ class WalletPayBitcoin extends WalletPay {
 
   async getNewAddress (config = {}) {
     let path = await this._hdWallet.getLastExtPath()
-    const addrType = HdWallet.getAddressType(path)
+    const addrType = this._addressType
     const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
     path = HdWallet.bumpIndex(path)
     await this._hdWallet.updateLastPath(path)
@@ -265,7 +268,7 @@ class WalletPayBitcoin extends WalletPay {
 
   async _getInternalAddress () {
     let path = await this._hdWallet.getLastIntPath()
-    const addrType = HdWallet.getAddressType(path)
+    const addrType = this._addressType
     const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
     path = HdWallet.bumpIndex(path)
     await this._hdWallet.updateLastPath(path)

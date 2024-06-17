@@ -3,7 +3,6 @@ const { WalletStoreHyperbee } = require('lib-wallet-store')
 const KeyManager = require('../src/wallet-key-btc.js')
 const BIP39Seed = require('wallet-seed-bip39')
 const Electrum = require('../src/electrum.js')
-const HdWallet = require('../src/hdwallet.js')
 const { bitcoin } = require('../../wallet-test-tools/')
 const BitcoinCurr = require('../src/currency')
 
@@ -92,7 +91,6 @@ module.exports = {
   BIP39Seed,
   Electrum,
   newElectrum,
-  HdWallet,
   activeWallet,
   regtestNode,
   pause,

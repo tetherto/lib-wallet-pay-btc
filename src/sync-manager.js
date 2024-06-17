@@ -1,6 +1,6 @@
 'use strict'
+const { HdWallet } = require('lib-wallet')
 const { EventEmitter } = require('events')
-const HdWallet = require('./hdwallet.js')
 const Bitcoin = require('./currency')
 const UnspentStore = require('./unspent-store.js')
 const { AddressManager, Balance } = require('./address-manager.js')
@@ -19,6 +19,7 @@ class SyncManager extends EventEmitter {
     this.minBlockConfirm = config.minBlockConfirm
     this.store = config.store
     this.maxScriptWatch = config.maxScriptWatch || 10
+    this._addressType = config.addressType
 
     // @desc: halt syncing
     this._halt = false
@@ -107,7 +108,6 @@ class SyncManager extends EventEmitter {
         await this._processHistory(txHistory)
       }))
     }
-
     await process(extlist)
     await process(inlist)
 
@@ -147,7 +147,6 @@ class SyncManager extends EventEmitter {
     }
     this.currentBlock = block
   }
-
 
   /**
    * @desc emit event for a txid when found in mempool 
@@ -219,16 +218,13 @@ class SyncManager extends EventEmitter {
   async _processHistory (txHistory) {
     const { _addr } = this
 
-
     txHistory = await Promise.all(txHistory.map(async (tx) => {
       const txState = this._getTxState(tx)
       await this._processUtxo(tx.out, 'out', txState, tx.fee, tx.txid)
       await this._processUtxo(tx.in, 'in', txState, 0, tx.txid)
-
       if(tx.height === 0 && !tx.mempool_first_seen) {
         tx.mempool_ts = Date.now()
       }
-
       return tx
     }))
     await _addr.storeTxHistory(txHistory)
@@ -248,7 +244,7 @@ class SyncManager extends EventEmitter {
       return [false, null, null, null]
     }
     let hasTx = false
-    const [scriptHash, addr] = keyManager.pathToScriptHash(path, HdWallet.getAddressType(path))
+    const [scriptHash, addr] = keyManager.pathToScriptHash(path, this._addressType)
     let txHistory 
     try {
       txHistory = await provider.getAddressHistory({}, scriptHash)
