@@ -52,7 +52,7 @@ class SyncManager extends EventEmitter {
     await this.state.setTotalBalance(total)
     this._total = total
     await this.resumeSync()
-    await this.state.resetSyncState()
+    await this.hdWallet.resetSyncState()
   }
 
   async close () {
@@ -237,64 +237,42 @@ class SyncManager extends EventEmitter {
   /**
   * @description process a path for transactions/history and count gap limit.
   */
-  async _processPath (path, gapEnd, gapCount) {
-    const { keyManager, provider, gapLimit, _halt } = this
+  async _processPath (path, signal) {
+    const { keyManager, provider, _halt } = this
 
-    if (_halt === true || gapCount >= gapLimit) {
-      return [false, null, null, null]
-    }
     let hasTx = false
     const [scriptHash, addr] = keyManager.pathToScriptHash(path, this._addressType)
     let txHistory 
     try {
       txHistory = await provider.getAddressHistory({}, scriptHash)
     } catch(e) {
-      return [false, null, null, null]
+      return signal.stop
     }
+    if(_halt) return signal.stop 
 
     if (Array.isArray(txHistory) && txHistory.length === 0) {
       // increase gap count if address has no tx
-      gapCount++
-    } else {
-      await this._processHistory(txHistory)
-      gapEnd++
-      gapCount = 0
-      hasTx = true
+      return signal.noTx
     }
-
-    return [true, hasTx, gapEnd, gapCount]
+    await this._processHistory(txHistory)
+    return signal.hasTx
   }
 
   async syncAccount (pathType, opts) {
     if (this._halt || this._isSyncing) throw new Error('already syncing '+this._halt+' '+this._isSyncing)
-    const { gapLimit, hdWallet, state } = this
+    const { hdWallet } = this
     this._isSyncing = true
 
-    const syncState = await state.getSyncState(opts)
-    const syncType = syncState[pathType]
-    let gapEnd = gapLimit
-    let gapCount = syncType.gap
-    if (syncType.gap >= gapLimit) {
-      this._isSyncing = false
-      return
+    if(opts?.restart) {
+      await hdWallet.resetSyncState()
     }
-    await hdWallet.eachAccount(pathType, syncType.path, async (path, halt) => {
-      const res = await this._processPath(path, gapEnd, gapCount)
-      const [done, hasTx] = res
-      gapEnd = res[2]
-      gapCount = res[3]
-      if (!done) return halt()
-      // Update path tracking state to not reuse addresses when reloaded
-      if (hasTx) {
-        hdWallet.updateLastPath(HdWallet.bumpIndex(path))
-      }
-      const syncType = syncState[pathType]
-      syncType.path = path
-      syncType.gap = gapCount
-      syncType.gapEnd = gapEnd
-      syncState[pathType] = syncType
-      await state.setSyncState(syncState)
-      this.emit('synced-path', pathType, path, hasTx, [gapCount, gapLimit, gapEnd])
+
+    await hdWallet.eachAccount(pathType, async (syncState, signal) => {
+      if(this._halt) return signal.stop 
+      const path = syncState.path
+      const res = await this._processPath(path, signal)
+      this.emit('synced-path', pathType, path, res === signal.hasTx, syncState.toJSON())
+      return res 
     })
 
     if (this._halt) {

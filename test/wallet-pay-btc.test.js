@@ -77,6 +77,7 @@ test('getNewAddress - address reuse logic', async (t) => {
   // Generate an new wallet and send some bitcoin to the address
   // generate wallet with same seed, resync and make sure that the address is not reused
 
+  t.comment('create new wallet')
   const regtest = await regtestNode()
   const seed = await BIP39Seed.generate()
   const btcPay = new BitcoinPay({
@@ -89,24 +90,25 @@ test('getNewAddress - address reuse logic', async (t) => {
     network: 'regtest'
   })
   await btcPay.initialize({})
+
   const lastExt = await btcPay._hdWallet.getLastExtPath()
   t.ok(lastExt === btcPay._hdWallet.INIT_EXTERNAL_PATH, 'first instance last external path is the default path when created')
   const addr = await btcPay.getNewAddress()
+  t.comment('sending btc to new address')
   const amount = 0.0001
   await regtest.sendToAddress({ address: addr.address, amount })
   await btcPay._onNewTx()
+  t.comment('mining blocks')
   await regtest.mine(2)
-
-  let _pathBalanceChecked = false
+  let _pathBalanceChecked = [false,false] 
   btcPay.once('synced-path', async (pt, path, hasTx) => {
     t.ok(path === addr.path, 'synced path matches address path')
     t.ok(hasTx, 'address has balance')
-    _pathBalanceChecked = true
+    _pathBalanceChecked[0] = true
   })
-
   await btcPay.syncTransactions()
 
-  if (!_pathBalanceChecked) t.fail('path balance not checked')
+  t.comment('create second wallet with seed of previous wallet')
 
   const btcPay2 = new BitcoinPay({
     asset_name: 'btc',
@@ -120,21 +122,24 @@ test('getNewAddress - address reuse logic', async (t) => {
   await btcPay2.initialize({})
   const lastExt2 = await btcPay2._hdWallet.getLastExtPath()
   t.ok(lastExt2 === btcPay2._hdWallet.INIT_EXTERNAL_PATH, 'second instance last path is the default path when created')
-  _pathBalanceChecked = true
+
   btcPay2.once('synced-path', async (pt, path, hasTx) => {
     t.ok(path === addr.path, 'second instance synced path matches address path')
     t.ok(hasTx, 'second instance address has transactions')
-    _pathBalanceChecked = true
+    _pathBalanceChecked[1] = true
   })
   await btcPay2.syncTransactions()
+
+  t.comment('new address is generated')
   const addr2 = await btcPay2.getNewAddress()
 
   const parsed = BitcoinPay.parsePath(addr.path)
   const parsed2 = BitcoinPay.parsePath(addr2.path)
   // Checking that address is not reused when it's already paid
   t.ok(addr.address !== addr2.address, 'address is not reused')
-  t.ok(parsed.index + 1 === parsed2.index, 'index increased by 1')
+  t.ok(parsed.index + 1 === parsed2.index, 'index increased by 1 since last instance')
   t.ok(parsed2.change === parsed.change, 'address type is same')
+  t.ok(_pathBalanceChecked.indexOf(false) === -1, 'path balance checked for both instances')
 
   await btcPay.destroy()
   await btcPay2.destroy()
@@ -305,7 +310,8 @@ test('syncing paths in order', async (t) => {
       let count = 0 
       const prev = []
       let restartCheck = false 
-      const handler = async (pt, path, hasTx, gapCount) => {
+      const handler = async (pt, path, hasTx, syncState) => {
+        const gapCount = syncState.gap
         if(opts.restart && !restartCheck){
           t.ok(path === btcPay._hdWallet.INIT_EXTERNAL_PATH, 'initial path is correct after restarting')
           restartCheck = true 

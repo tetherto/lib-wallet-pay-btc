@@ -6,13 +6,7 @@ const Bitcoin = require('./currency')
 
 const WalletPayError = Error
 
-class SyncState {
-  constructor (config = {}) {
-    this.gap = config.gap || 0
-    this.gapEnd = config.gapEnd || null
-    this.path = config.path || null
-  }
-}
+
 
 class StateDb {
   constructor (config) {
@@ -25,31 +19,6 @@ class StateDb {
 
   async updateReceiveBalance (balance) {
     return this.store.put('receive_balance', balance)
-  }
-
-  async getSyncState (opts) {
-    const state = await this.store.get('sync_state')
-    if (!state || opts?.restart) {
-      return this._newSyncState()
-    }
-    return state
-  }
-
-  _newSyncState () {
-    return {
-      internal: new SyncState(),
-      external: new SyncState()
-    }
-  }
-
-  async resetSyncState () {
-    const state = this._newSyncState()
-    await this.store.put('sync_state', state)
-    return state
-  }
-
-  async setSyncState (state) {
-    return this.store.put('sync_state', state)
   }
 
   async addWatchedScriptHashes (list, addrType) {
@@ -193,6 +162,7 @@ class WalletPayBitcoin extends WalletPay {
       store: this.store.newInstance({ name: 'hdwallet' }),
       coinType: "0'",
       purpose: "84'",
+      gapLimit: this.gapLimit
     })
     this.state = new StateDb({
       store: this.store.newInstance({ name: 'state' })
