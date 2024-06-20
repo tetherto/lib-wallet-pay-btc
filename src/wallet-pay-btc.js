@@ -267,13 +267,7 @@ class WalletPayBitcoin extends WalletPay {
       await _syncManager.reset()
     }
 
-    await _syncManager.syncAccount('external', opts)
-    if (_syncManager.isStopped()) {
-      _syncManager.resumeSync()
-      return
-    }
-    await _syncManager.syncAccount('internal', opts)
-    _syncManager.resumeSync()
+    await _syncManager.syncAccount(opts)
   }
 
   // Pause syncing transactions from electrum

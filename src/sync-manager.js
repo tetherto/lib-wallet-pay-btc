@@ -259,7 +259,7 @@ class SyncManager extends EventEmitter {
   }
 
   async syncAccount (opts) {
-    if (this._halt || this._isSyncing) throw new Error('already syncing '+this._halt+' '+this._isSyncing)
+    if (this._halt || this._isSyncing) throw new Error('halted:'+this._halt+' is syncing: '+this._isSyncing)
     const { hdWallet } = this
     this._isSyncing = true
 
@@ -278,10 +278,12 @@ class SyncManager extends EventEmitter {
     if (this._halt) {
       this._isSyncing = false
       this.emit('sync-end')
+      this.resumeSync()
       return
     }
     await this._unspent.process()
     this._isSyncing = false
+      this.resumeSync()
     this.emit('sync-end')
   }
 
