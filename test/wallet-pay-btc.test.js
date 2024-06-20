@@ -323,7 +323,6 @@ test('syncing paths in order', async (t) => {
           prev.push(path)
           return
         }
-        
         const last = BitcoinPay.parsePath(prev[prev.length - 1])
         const parsed = BitcoinPay.parsePath(path)
         t.ok(last.purpose === parsed.purpose, sType + ' path order: purpose')
