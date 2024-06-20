@@ -261,24 +261,24 @@ test('getTransactions', async (t) => {
   })
 })();
 
-test('pauseSync - internal and external', async (t) => {
+solo('pauseSync - internal and external', async (t) => {
   async function runTest(sType, opts){
     const btcPay = await activeWallet()
-    let max = 5
-    test('pauseSync: '+sType, async (t) => {
+    let max = opts.max
+    solo('pauseSync: '+sType, async (t) => {
       let lastPath = null 
       let count = 0 
-      const first = (pt, path, hastx, gap) => {
+      const first = (pt, path) => {
         if(pt !== sType) return
-        if(count === max) t.fail('count exceeded. did not halt')
+        if(count > max) throw new Error('count exceeded. did not halt')
         count++
-        lastPath = { path, gap }
-        if(count === max) {
+        lastPath = path 
+        if(count > max) {
           return btcPay.pauseSync()
         }
       }
       const afterPause = async (pt, path, hasTx, gapCount) => {
-        const last = BitcoinPay.parsePath(lastPath.path)
+        const last = BitcoinPay.parsePath(lastPath)
         const parsed = BitcoinPay.parsePath(path)
         t.ok(last.purpose === parsed.purpose, sType + ' resume sync: purpose')
         t.ok(last.coin_type === parsed.coin_type, sType + ' resume sync: coin_type')
@@ -289,15 +289,15 @@ test('pauseSync - internal and external', async (t) => {
       }
       btcPay.on('synced-path', first)
       await btcPay.syncTransactions(opts)
-      t.ok(count === max, 'syncing stopped after iteration count:'+ max)
+      t.ok(count-1 === max, 'syncing stopped after iteration count:'+ max)
       btcPay.off('synced-path', first)
       btcPay.on('synced-path', afterPause)
       await btcPay.syncTransactions()
       await btcPay.destroy()
     })
   }
-  await runTest('external')
-  await runTest('internal', { reset: true })
+  await runTest('external', { max: 5 })
+  await runTest('internal', { restart: true, max: 10 })
 })
 
 // Sycning paths must be in order

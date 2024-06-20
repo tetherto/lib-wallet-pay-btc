@@ -258,7 +258,7 @@ class SyncManager extends EventEmitter {
     return signal.hasTx
   }
 
-  async syncAccount (pathType, opts) {
+  async syncAccount (opts) {
     if (this._halt || this._isSyncing) throw new Error('already syncing '+this._halt+' '+this._isSyncing)
     const { hdWallet } = this
     this._isSyncing = true
@@ -267,11 +267,11 @@ class SyncManager extends EventEmitter {
       await hdWallet.resetSyncState()
     }
 
-    await hdWallet.eachAccount(pathType, async (syncState, signal) => {
+    await hdWallet.eachAccount(async (syncState, signal) => {
       if(this._halt) return signal.stop 
       const path = syncState.path
       const res = await this._processPath(path, signal)
-      this.emit('synced-path', pathType, path, res === signal.hasTx, syncState.toJSON())
+      this.emit('synced-path', syncState._addrType, path, res === signal.hasTx, syncState.toJSON())
       return res 
     })
 
