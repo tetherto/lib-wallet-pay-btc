@@ -1,5 +1,4 @@
 'use strict'
-const { HdWallet } = require('lib-wallet')
 const { EventEmitter } = require('events')
 const Bitcoin = require('./currency')
 const UnspentStore = require('./unspent-store.js')
@@ -40,7 +39,6 @@ class SyncManager extends EventEmitter {
     await this._addr.init()
     this._unspent = new UnspentStore({ store: this.store })
     await this._unspent.init()
-
   }
 
   async reset () {
@@ -68,7 +66,7 @@ class SyncManager extends EventEmitter {
     return this._addr.getSentTx(txid)
   }
 
-  async _getTotalBal() {
+  async _getTotalBal () {
     const total = await this.state.getTotalBalance()
     if (!total) {
       return this._total
@@ -86,7 +84,7 @@ class SyncManager extends EventEmitter {
       await state.getWatchedScriptHashes('ext')
     )
     provider.on('new-tx', async (changeHash) => {
-      if(this._halt) return
+      if (this._halt) return
       await this._updateScriptHashBalance(changeHash)
       this.emit('new-tx')
     })
@@ -103,7 +101,7 @@ class SyncManager extends EventEmitter {
     const process = async (data) => {
       await Promise.all(data.map(async ([scripthash, balHash]) => {
         if (changeHash === balHash) return
-        if(this._halt) return
+        if (this._halt) return
         const txHistory = await provider.getAddressHistory({ cache: false }, scripthash)
         await this._processHistory(txHistory)
       }))
@@ -118,7 +116,7 @@ class SyncManager extends EventEmitter {
   }
 
   /**
-  * @description watch address for changes and save to store for when lib is resumed 
+  * @description watch address for changes and save to store for when lib is resumed
   **/
   async watchAddress ([scriptHash, addr], addrType) {
     const { state, _max_script_watch: maxScriptWatch, provider, _addr } = this
@@ -140,31 +138,31 @@ class SyncManager extends EventEmitter {
   }
 
   async updateBlock (block) {
-    if(block.current !== 0 && block.diff > 0 && block.last !== 0 ) {
+    if (block.current !== 0 && block.diff > 0 && block.last !== 0) {
       this.currentBlock = block
       this._newBlock()
-      return 
+      return
     }
     this.currentBlock = block
   }
 
   /**
-   * @desc emit event for a txid when found in mempool 
+   * @desc emit event for a txid when found in mempool
    *
   **/
-  watchTxMempool(txid) {
-    if(this._tx_events.includes(txid)) return 
+  watchTxMempool (txid) {
+    if (this._tx_events.includes(txid)) return
     this._tx_events.push(txid)
   }
 
-  /** 
-   * @desc fire event for tx being watched 
+  /**
+   * @desc fire event for tx being watched
    **/
-  _emitTxEvent(tx) {
-    const index = this._tx_events.indexOf(tx.txid);
-    if((tx.height  === 0) && index >= 0){
-      this._tx_events.splice(index,1)
-      this.emit('tx:mempool:'+tx.txid, tx)
+  _emitTxEvent (tx) {
+    const index = this._tx_events.indexOf(tx.txid)
+    if ((tx.height === 0) && index >= 0) {
+      this._tx_events.splice(index, 1)
+      this.emit('tx:mempool:' + tx.txid, tx)
     }
   }
 
@@ -172,18 +170,18 @@ class SyncManager extends EventEmitter {
   * @description process new block, catch up with missed blocks, and update balances and utxo store
   **/
   async _newBlock () {
-    const { _addr, currentBlock } = this
+    const { currentBlock } = this
 
     // Get all txs in block range.
     // We don't get tx in mempool as those are handled in _handleScriptHashChange
     let arr = []
-    for(let i = currentBlock.last; i <= currentBlock.current; i++) {
-      let z = await this._addr.getTxHeight(i)
-      if(!z) continue
+    for (let i = currentBlock.last; i <= currentBlock.current; i++) {
+      const z = await this._addr.getTxHeight(i)
+      if (!z) continue
       arr = arr.concat(z)
     }
-    
-    if(arr.length === 0) return
+
+    if (arr.length === 0) return
 
     const newTx = await Promise.all(arr.map(async (tx) => {
       return await this.provider.getTransaction(tx.txid, { cache: false })
@@ -200,16 +198,16 @@ class SyncManager extends EventEmitter {
       await processTx('in', tx)
       await processTx('out', tx)
     }))
-    
+
     await this._unspent.process()
 
-    if(arr.length > 0) {
+    if (arr.length > 0) {
       this.emit('new-tx')
     }
   }
 
   /**
-  * @desc Store transaction history and process VIN and VOUTS. 
+  * @desc Store transaction history and process VIN and VOUTS.
   * This functions is called when there is a new block, syncing entire wallet, new script hash change is detected
   * @param {Object} addr address object
   * @param {Array} txHistory transaction history
@@ -222,7 +220,7 @@ class SyncManager extends EventEmitter {
       const txState = this._getTxState(tx)
       await this._processUtxo(tx.out, 'out', txState, tx.fee, tx.txid)
       await this._processUtxo(tx.in, 'in', txState, 0, tx.txid)
-      if(tx.height === 0 && !tx.mempool_first_seen) {
+      if (tx.height === 0 && !tx.mempool_first_seen) {
         tx.mempool_ts = Date.now()
       }
       return tx
@@ -240,15 +238,14 @@ class SyncManager extends EventEmitter {
   async _processPath (path, signal) {
     const { keyManager, provider, _halt } = this
 
-    let hasTx = false
-    const [scriptHash, addr] = keyManager.pathToScriptHash(path, this._addressType)
-    let txHistory 
+    const [scriptHash] = keyManager.pathToScriptHash(path, this._addressType)
+    let txHistory
     try {
       txHistory = await provider.getAddressHistory({}, scriptHash)
-    } catch(e) {
+    } catch (e) {
       return signal.stop
     }
-    if(_halt) return signal.stop 
+    if (_halt) return signal.stop
 
     if (Array.isArray(txHistory) && txHistory.length === 0) {
       // increase gap count if address has no tx
@@ -259,20 +256,20 @@ class SyncManager extends EventEmitter {
   }
 
   async syncAccount (opts) {
-    if (this._halt || this._isSyncing) throw new Error('halted:'+this._halt+' is syncing: '+this._isSyncing)
+    if (this._halt || this._isSyncing) throw new Error('halted:' + this._halt + ' is syncing: ' + this._isSyncing)
     const { hdWallet } = this
     this._isSyncing = true
 
-    if(opts?.restart) {
+    if (opts?.restart) {
       await hdWallet.resetSyncState()
     }
 
     await hdWallet.eachAccount(async (syncState, signal) => {
-      if(this._halt) return signal.stop 
+      if (this._halt) return signal.stop
       const path = syncState.path
       const res = await this._processPath(path, signal)
       this.emit('synced-path', syncState._addrType, path, res === signal.hasTx, syncState.toJSON())
-      return res 
+      return res
     })
 
     if (this._halt) {
@@ -283,7 +280,7 @@ class SyncManager extends EventEmitter {
     }
     await this._unspent.process()
     this._isSyncing = false
-      this.resumeSync()
+    this.resumeSync()
     this.emit('sync-end')
   }
 
@@ -324,28 +321,27 @@ class SyncManager extends EventEmitter {
     const { _addr, _total, hdWallet } = this
 
     return Promise.all(utxoList.map(async (utxo) => {
-
       const bal = await _addr.get(utxo.address)
       const addr = await hdWallet.getAddress(utxo.address)
-      if(!bal || !addr) return 
+      if (!bal || !addr) return
       // point is the txid:vout index. Unique id for utxo
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
       // set public keys for utxo, as they will be needed for signing tx
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
-      
+
       // update balance of each tx state. mempool, confirmed, pending
       // add txid to txid list for each state
       _total[inout].addTxid(txState, point, utxo.value)
       bal[inout].addTxid(txState, point, utxo.value)
 
       // update fee balances
-      if(txFee > 0) {
+      if (txFee > 0) {
         _total.fee.addTxid(txState, point, txFee)
         bal.fee.addTxid(txState, point, txFee)
       }
       _addr.set(utxo.address, bal)
-      // Add UTXO to unspent store for tx signings 
+      // Add UTXO to unspent store for tx signings
       await this._unspent.add(utxo, inout)
       await this.state.setTotalBalance(_total)
     }))
@@ -362,7 +358,7 @@ class SyncManager extends EventEmitter {
   isStopped () { return this._halt }
 
   async utxoForAmount (value, strategy) {
-    if(!(value instanceof Bitcoin)) {
+    if (!(value instanceof Bitcoin)) {
       value = new Bitcoin(value.amount, value.unit)
     }
     return this._unspent.getUtxoForAmount(value, strategy)

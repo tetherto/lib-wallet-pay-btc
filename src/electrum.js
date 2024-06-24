@@ -68,15 +68,13 @@ class RequestCache {
     return data ? data[0] : null
   }
 
-  get size() {
+  get size () {
     return this._cache_size
   }
 
   set size (val) {
     return null
   }
-
-
 }
 
 class Electrum extends EventEmitter {
@@ -168,7 +166,7 @@ class Electrum extends EventEmitter {
 
   _makeRequest (method, params) {
     return new Promise((resolve, reject) => {
-      if(this._closed) return reject(new Error('client closed'))
+      if (this._closed) return reject(new Error('client closed'))
       if (this.clientState !== 1) {
         return reject(new Error('client not connected'))
       }
@@ -242,8 +240,8 @@ class Electrum extends EventEmitter {
     }
   }
 
-  _procTxHeight(tx) {
-    if(!tx.confirmations) {
+  _procTxHeight (tx) {
+    if (!tx.confirmations) {
       tx.height = 0
     } else {
       tx.height = this.block_height - (tx.confirmations - 1)
@@ -254,7 +252,7 @@ class Electrum extends EventEmitter {
   async _txGet (txid, opts) {
     const cache = this.cache
 
-    if(opts.cache === false) {
+    if (opts.cache === false) {
       let data = await this._getTransaction(txid)
       data = this._procTxHeight(data)
       await cache.set(txid, data)
@@ -268,12 +266,10 @@ class Electrum extends EventEmitter {
     return data
   }
 
-
   /**
   * @description get transaction details. Store tx in cache.
   */
   async getTransaction (txid, opts = {}) {
-    const cache = this.cache
     const data = {
       txid,
       out: [],
@@ -281,7 +277,7 @@ class Electrum extends EventEmitter {
       unconfirmed_inputs: []
     }
 
-    let tx = await this._txGet(txid, opts)
+    const tx = await this._txGet(txid, opts)
     data.height = tx.height
 
     let totalOut = new Bitcoin(0, 'main')
@@ -299,7 +295,7 @@ class Electrum extends EventEmitter {
       newvin.prev_txid = vin.txid
       newvin.prev_index = vin.vout
       newvin.prev_tx_height = txDetail.height
-      if(txDetail.height === 0) data.unconfirmed_inputs.push(vin.txid)
+      if (txDetail.height === 0) data.unconfirmed_inputs.push(vin.txid)
       totalIn = totalIn.add(newvin.value)
       return newvin
     }))
@@ -319,7 +315,7 @@ class Electrum extends EventEmitter {
     this.emit('new-block', height)
   }
 
-  async close() {
+  async close () {
     this._closed = true
     await this._stopClient()
     await this.cache.stop()

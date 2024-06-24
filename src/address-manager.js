@@ -2,7 +2,7 @@ const Bitcoin = require('./currency')
 
 class Balance {
   constructor (confirmed, pending, mempool, txid) {
-    // @desc: confirmed balance. Tx that have more than X amount of confirmations 
+    // @desc: confirmed balance. Tx that have more than X amount of confirmations
     this.confirmed = new Bitcoin(confirmed, 'main')
     // @desc: pending balance. Tx that have less than X amount of confirmations but more than 0
     this.pending = new Bitcoin(pending, 'main')
@@ -16,10 +16,10 @@ class Balance {
     }
   }
 
-  addTxid(state, txid, amount) {
-    for(const state in this.txid) {
+  addTxid (state, txid, amount) {
+    for (const state in this.txid) {
       this.txid[state] = this.txid[state].filter(([tx]) => {
-        if(tx === txid) {
+        if (tx === txid) {
           this.minusBalance(state, amount)
           return false
         }
@@ -30,30 +30,29 @@ class Balance {
     this.txid[state].push([txid, amount])
   }
 
-  getTx(state, key) {
+  getTx (state, key) {
     return this.txid[state].filter(([tx]) => {
       return tx === key
     }).pop()
   }
 
-  addBalance(state, amount) {
+  addBalance (state, amount) {
     this[state] = this[state].add(amount)
   }
 
-  minusBalance(state, amount) {
+  minusBalance (state, amount) {
     this[state] = this[state].minus(amount)
   }
 
-  combine(t2) {
+  combine (t2) {
     const total = new Balance(0, 0, 0)
-    const t1 = this
     total.mempool = this.mempool.minus(t2.mempool)
     total.confirmed = this.confirmed.minus(t2.confirmed)
     total.pending = this.pending.minus(t2.pending)
     return total.formatted()
   }
 
-  formatted() {
+  formatted () {
     return {
       confirmed: this.confirmed,
       pending: this.pending,
@@ -88,7 +87,7 @@ class AddressManager {
     return {
       in: new Balance(0, 0, 0),
       out: new Balance(0, 0, 0),
-      fee: new Balance(0, 0, 0),
+      fee: new Balance(0, 0, 0)
     }
   }
 
@@ -102,7 +101,7 @@ class AddressManager {
 
   async newAddress (addr) {
     const exist = await this.get(addr)
-    if(exist) return exist
+    if (exist) return exist
     const data = this._newAddr()
     await this.store.put(addr, data)
     return data
@@ -114,11 +113,11 @@ class AddressManager {
 
   async get (addr) {
     const data = await this.store.get(addr)
-    if(!data) return null
+    if (!data) return null
     return {
-      in : new Balance(data.in.confirmed, data.in.pending, data.in.mempool, data.in.txid),
-      out : new Balance(data.out.confirmed, data.out.pending, data.out.mempool, data.out.txid),
-      fee : new Balance(data.fee.confirmed, data.fee.pending, data.fee.mempool, data.fee.txid),
+      in: new Balance(data.in.confirmed, data.in.pending, data.in.mempool, data.in.txid),
+      out: new Balance(data.out.confirmed, data.out.pending, data.out.mempool, data.out.txid),
+      fee: new Balance(data.fee.confirmed, data.fee.pending, data.fee.mempool, data.fee.txid)
     }
   }
 
@@ -143,20 +142,19 @@ class AddressManager {
 
   /**
   * @desc Get transaction history by block height
-  */ 
+  */
   getTxHeight (height) {
-    return this.history.get('i:'+height)
+    return this.history.get('i:' + height)
   }
 
   /**
   * @desc Remove transaction from mempool store
-  *       Mempool transactions have 0 height. 
+  *       Mempool transactions have 0 height.
   *       When they are confirmed they must be removed to prevent duplicate tx being kept in store
   * @param {String} txid - transaction id
   */
   async _removeFromMempool (txid) {
     let mp = await this.history.get('i:' + 0) || []
-    const meta = {}
     let mpx = null
 
     for (const x in mp) {
@@ -166,9 +164,9 @@ class AddressManager {
         break
       }
     }
-    if(mp.length === 0) {
+    if (mp.length === 0) {
       mp = null
-    } 
+    }
     await this.history.put('i:' + 0, mp)
     return mpx
   }
@@ -177,18 +175,18 @@ class AddressManager {
   * @desc Store transaction history in history store
   **/
   async storeTxHistory (history) {
-    for(const tx of history) {
+    for (const tx of history) {
       let heightTx = await this.getTxHeight(tx.height)
       if (!heightTx) {
         heightTx = []
       } else {
         const exists = heightTx.some(htx => htx.txid === tx.txid)
-        if (exists){
+        if (exists) {
           continue
         }
       }
       const mtx = await this._removeFromMempool(tx.txid)
-      if(mtx) {
+      if (mtx) {
         tx.mempool_ts = mtx.mempool_ts
       }
       heightTx.push(tx)
@@ -196,10 +194,9 @@ class AddressManager {
     }
   }
 
-  getMempoolTx() {
+  getMempoolTx () {
     return this.history.get('i:' + 0)
   }
-
 
   /**
   * @desc et transaction history from history store
@@ -217,7 +214,7 @@ class AddressManager {
     return this.outgoings.put(tx.txid, tx)
   }
 
-  getSentTx(txid) {
+  getSentTx (txid) {
     return this.outgoings.get(txid)
   }
 }

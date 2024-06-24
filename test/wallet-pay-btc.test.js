@@ -24,7 +24,7 @@ test('Create an instances of WalletPayBitcoin', async function (t) {
     network: 'regtest'
   })
   await btcPay.initialize({})
-  
+
   t.ok(btcPay.ready, 'instance is ready')
   t.comment('destoying instance')
   await btcPay.destroy()
@@ -72,7 +72,6 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   await btcPay2.destroy()
 })
 
-
 test('getNewAddress - address reuse logic', async (t) => {
   // Generate an new wallet and send some bitcoin to the address
   // generate wallet with same seed, resync and make sure that the address is not reused
@@ -100,7 +99,7 @@ test('getNewAddress - address reuse logic', async (t) => {
   await btcPay._onNewTx()
   t.comment('mining blocks')
   await regtest.mine(2)
-  let _pathBalanceChecked = [false,false] 
+  const _pathBalanceChecked = [false, false]
   btcPay.once('synced-path', async (pt, path, hasTx) => {
     t.ok(path === addr.path, 'synced path matches address path')
     t.ok(hasTx, 'address has balance')
@@ -154,7 +153,7 @@ test('getTransactions', async (t) => {
   let last = 0
   const max = 5
   let c = 0
-  await btcPay.getTransactions(async(tx) => {
+  await btcPay.getTransactions(async (tx) => {
     const h = tx[0].height
     if (!last) {
       last = h
@@ -163,12 +162,12 @@ test('getTransactions', async (t) => {
     t.ok(last < h, 'tx height is in descending order height: ' + h)
     last = h
     c++
-    if(c === max) {
+    if (c === max) {
       await btcPay.destroy()
       t.end()
     }
   })
-  if(c !== max) t.fail('tx not received')
+  if (c !== max) t.fail('tx not received')
 });
 
 // test('Block counter', async (t) => {
@@ -202,33 +201,31 @@ test('getTransactions', async (t) => {
     const regtest = await regtestNode()
     t.comment('create new wallet')
     const btcPay = await activeWallet({ newWallet: true })
-    //const max = btcPay._syncManager._max_script_watch
-    const max = 2
-    let res
+    // const max = btcPay._syncManager._max_script_watch
 
     async function newTx () {
       t.comment('checking balance transition between confirmed/pending/mempool', state, send)
-      for( let key in send) {
-        let addr = key
+      for (const key in send) {
+        const addr = key
         const amount = send[key]
-        let balance 
+        let balance
         try {
           balance = await btcPay.getBalance({}, addr)
-        } catch(e) {
+        } catch (e) {
           console.log(e)
-          continue 
+          continue
         }
         const bal = balance[state].toMainUnit()
         t.ok(bal === amount.toString(), `address balance matches sent amount ${state} ${addr} - ${amount} - ${bal}`)
-        if(state === 'pending') {
+        if (state === 'pending') {
           t.ok(balance.mempool.toMainUnit() === '0', 'mempool balance is 0')
           t.ok(balance.confirmed.toMainUnit() === '0', 'confirmed balance is 0')
         }
-        if(state === 'confirmed') {
+        if (state === 'confirmed') {
           t.ok(balance.mempool.toMainUnit() === '0', 'mempool balance is 0')
           t.ok(balance.pending.toMainUnit() === '0', 'pending balance is 0')
         }
-        if(state === 'mempool') {
+        if (state === 'mempool') {
           t.ok(balance.confirmed.toMainUnit() === '0', 'confirmed balance is 0')
           t.ok(balance.pending.toMainUnit() === '0', 'pending balance is 0')
         }
@@ -247,7 +244,7 @@ test('getTransactions', async (t) => {
     t.comment('wait for mempool tx')
     state = 'mempool'
     await regtest.sendToAddress({ address: addr.address, amount })
-    const z = await pass.mempool.promise
+    await pass.mempool.promise
     t.comment('mining block for pending tx')
     state = 'pending'
     await regtest.mine(1)
@@ -259,25 +256,25 @@ test('getTransactions', async (t) => {
     await btcPay.destroy()
     t.end()
   })
-})();
+})()
 
-solo('pauseSync - internal and external', async (t) => {
-  async function runTest(sType, opts){
+solo('pauseSync - internal and external', async () => {
+  async function runTest (sType, opts) {
     const btcPay = await activeWallet()
-    let max = opts.max
-    solo('pauseSync: '+sType, async (t) => {
-      let lastPath = null 
-      let count = 0 
+    const max = opts.max
+    solo('pauseSync: ' + sType, async (t) => {
+      let lastPath = null
+      let count = 0
       const first = (pt, path) => {
-        if(pt !== sType) return
-        if(count > max) throw new Error('count exceeded. did not halt')
+        if (pt !== sType) return
+        if (count > max) throw new Error('count exceeded. did not halt')
         count++
-        lastPath = path 
-        if(count > max) {
+        lastPath = path
+        if (count > max) {
           return btcPay.pauseSync()
         }
       }
-      const afterPause = async (pt, path, hasTx, gapCount) => {
+      const afterPause = async (pt, path) => {
         const last = BitcoinPay.parsePath(lastPath)
         const parsed = BitcoinPay.parsePath(path)
         t.ok(last.purpose === parsed.purpose, sType + ' resume sync: purpose')
@@ -289,7 +286,7 @@ solo('pauseSync - internal and external', async (t) => {
       }
       btcPay.on('synced-path', first)
       await btcPay.syncTransactions(opts)
-      t.ok(count-1 === max, 'syncing stopped after iteration count:'+ max)
+      t.ok(count - 1 === max, 'syncing stopped after iteration count:' + max)
       btcPay.off('synced-path', first)
       btcPay.on('synced-path', afterPause)
       await btcPay.syncTransactions()
@@ -302,24 +299,22 @@ solo('pauseSync - internal and external', async (t) => {
 
 // Sycning paths must be in order
 test('syncing paths in order', async (t) => {
-  async function runTest(sType, opts){
+  async function runTest (sType, opts) {
     const btcPay = await activeWallet()
-    let max = 5
-    test('sync in order: '+sType, async (t) => {
-      let lastPath = null 
-      let count = 0 
+    const max = 5
+    test('sync in order: ' + sType, async (t) => {
+      let count = 0
       const prev = []
-      let restartCheck = false 
+      let restartCheck = false
       const handler = async (pt, path, hasTx, syncState) => {
-        const gapCount = syncState.gap
-        if(opts.restart && !restartCheck){
+        if (opts.restart && !restartCheck) {
           t.ok(path === btcPay._hdWallet.INIT_EXTERNAL_PATH, 'initial path is correct after restarting')
-          restartCheck = true 
+          restartCheck = true
         }
-        if(pt !== sType) return
+        if (pt !== sType) return
         count++
 
-        if(prev.length === 0 ) {
+        if (prev.length === 0) {
           prev.push(path)
           return
         }
@@ -331,7 +326,7 @@ test('syncing paths in order', async (t) => {
         t.ok(last.change === parsed.change, sType + ' path order: change')
         t.ok(last.index - parsed.index === -1, sType + ' path order: index increased by 1')
         prev.push(path)
-        if(count === max) {
+        if (count === max) {
           btcPay.off('synced-path', handler)
           await btcPay.destroy()
           t.end()
@@ -364,7 +359,7 @@ test('syncTransaction - balance check', async (t) => {
     let bal
     try {
       bal = await btcPay.getBalance({}, addr.address)
-    } catch(e) {
+    } catch (e) {
       return
     }
     const balTotal = bal.confirmed.add(bal.pending).toBaseUnit()

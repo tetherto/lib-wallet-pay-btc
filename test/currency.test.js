@@ -1,7 +1,5 @@
 const test = require('brittle')
-const assert = require('assert')
 const Btc = require('../src/currency.js')
-
 
 test('Currency: Bitcoin', async (t) => {
   test('Units', async (t) => {
@@ -10,15 +8,15 @@ test('Currency: Bitcoin', async (t) => {
     t.ok(btc.base_name === 'SATS', 'currency name is SATS')
 
     const base = btc.toBaseUnit()
-    t.ok(100000000 === +base, 'toBaseUnit is correct')
-    t.ok(1 === +btc.toMainUnit(base), 'toMainUnit is correct')
+    t.ok(+base === 100000000, 'toBaseUnit is correct')
+    t.ok(+btc.toMainUnit(base) === 1, 'toMainUnit is correct')
   })
 
   test('isUnitOf', async (t) => {
     const btc = new Btc(1, 'main')
     try {
       btc.isUnitOf('SATS')
-    } catch(err) {
+    } catch (err) {
       t.ok(err.message === 'Amount must be an instance of Bitcoin', 'isUnitOf is implemented')
     }
   })
@@ -32,7 +30,7 @@ test('Currency: Bitcoin', async (t) => {
     const btc3 = btc2.add(new Btc(100000001, 'base'))
     t.ok(+btc3.toMainUnit() === 3.00000001, 'add: 2 + 1.00000001 = 3.00000001')
   })
-  
+
   test('Math: minus', async (t) => {
     const btc = new Btc(2, 'main')
     const btc2 = btc.minus(btc)
@@ -61,5 +59,4 @@ test('Currency: Bitcoin', async (t) => {
     t.ok(btc2.eq(btc1), '2 == 2')
     t.ok(btc2.eq(new Btc(3, 'main')) === false, ' 2 != 3')
   })
-
 })

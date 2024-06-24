@@ -2,7 +2,6 @@ const test = require('brittle')
 const assert = require('assert')
 const Currency = require('wallet/src/lib/currency.js')
 
-
 test('Currency', async (t) => {
   test('Currency: create', async (t) => {
     const currency = new Currency({

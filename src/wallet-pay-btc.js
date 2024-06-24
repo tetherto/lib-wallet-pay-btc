@@ -1,12 +1,10 @@
 const { WalletPay, HdWallet } = require('lib-wallet')
-const { EventEmitter, once } = require('events')
+const { EventEmitter } = require('events')
 const Transaction = require('./transaction.js')
 const SyncManager = require('./sync-manager.js')
 const Bitcoin = require('./currency')
 
 const WalletPayError = Error
-
-
 
 class StateDb {
   constructor (config) {
@@ -44,7 +42,6 @@ class StateDb {
   async setLatestBlock (block) {
     return this.store.put('latest_block', block)
   }
-
 }
 
 /**
@@ -67,33 +64,32 @@ class BlockCounter extends EventEmitter {
   }
 
   async setBlock (newBlock) {
-    const {height, hash } = newBlock
+    const { height } = newBlock
 
     const diff = height - this.block
     const last = this.block
-    if(diff < 0 ) {
-      // Block reorg? 
+    if (diff < 0) {
+      // Block reorg?
       console.log('block reorg detected')
-      return 
-    } 
+      return
+    }
 
     this.block = height
     await this._emitBlock({
       current: height,
-      diff: diff,
+      diff,
       last
     })
     this.state.setLatestBlock(this.block)
     return true
   }
 
-  async _emitBlock(block) {
+  async _emitBlock (block) {
     const events = this.rawListeners('new-block')
 
     await Promise.all(events.map(async (event) => {
       return event(block)
     }))
-
   }
 }
 
@@ -101,24 +97,22 @@ class WalletPayBitcoin extends WalletPay {
   static networks = ['regtest', 'mainnet', 'testnet', 'signet', 'bitcoin']
   static events = ['ready', 'synced-path', 'new-tx']
 
-
   /**
   * @desc WalletPayBitcoin
   * @param {Object} config - Config
   * @param {Object} [config.provider=Electrum]- block data provider
   * @param {Object} [electrum config]. See Electrum.js for all options
   * @param {Object} config.store - store instance
-  * @param {Object} [config.key_manager=WalletKeyBtc] - key manager instance. 
+  * @param {Object} [config.key_manager=WalletKeyBtc] - key manager instance.
   * @param {Seed} config.seed - seed for key manager.
   * @param {String} config.network - blockchain network
   * @param {Number} [config.gapLimit=20] - gap limit. How far to look ahead when scanning for balances
   * @param {Number} [config.min_block_confirm=1] - minimum number of block confirmations
-  **/ 
+  **/
   constructor (config) {
-
     super(config)
     if (!WalletPayBitcoin.networks.includes(this.network)) throw new WalletPayError('Invalid network')
-    
+
     this._electrum_config = config.electrum || {}
     this.gapLimit = config.gapLimit || 20
     this.min_block_confirm = config.min_block_confirm || 1
@@ -139,26 +133,26 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   async initialize (wallet) {
-    if (this.ready) return 
+    if (this.ready) return
 
     // @desc use default key manager
-    if(!this.keyManager) {
+    if (!this.keyManager) {
       this.keyManager = new (require('./wallet-key-btc.js'))({ seed: wallet.seed, network: this.network })
     }
 
     // Add asset to wallet
     await super.initialize(wallet)
 
-    if(!this.keyManager.network) {
+    if (!this.keyManager.network) {
       this.keyManager.setNetwork(this.network)
     }
-    
-    if(!this.provider) {
+
+    if (!this.provider) {
       this._electrum_config.store = this.store
       this.provider = new (require('./electrum.js'))(this._electrum_config)
     }
-    
-    this._hdWallet = new HdWallet({ 
+
+    this._hdWallet = new HdWallet({
       store: this.store.newInstance({ name: 'hdwallet' }),
       coinType: "0'",
       purpose: "84'",
@@ -168,11 +162,10 @@ class WalletPayBitcoin extends WalletPay {
       store: this.store.newInstance({ name: 'state' })
     })
 
-    
-    if(!this.provider.isConnected()) {
+    if (!this.provider.isConnected()) {
       await this.provider.connect()
     }
-    
+
     this._syncManager = new SyncManager({
       state: this.state,
       gapLimit: this.gapLimit,
@@ -186,19 +179,18 @@ class WalletPayBitcoin extends WalletPay {
       addressType: this._addressType
     })
 
-    this.block = new BlockCounter({ state : this.state })
+    this.block = new BlockCounter({ state: this.state })
     await this.block.init()
     this.block.on('new-block', async (block) => {
       this.emit('new-block', block)
       await this._syncManager.updateBlock(block)
     })
 
-
     await this.state.init()
     await this._syncManager.init()
     await this._hdWallet.init()
     const electrum = new Promise((resolve) => {
-      this.provider.once('new-block', (block) => {
+      this.provider.once('new-block', () => {
         this.ready = true
         this.emit('ready')
         resolve()
@@ -219,8 +211,8 @@ class WalletPayBitcoin extends WalletPay {
     return Promise.resolve(electrum)
   }
 
-  _onNewTx() {
-    return new Promise((resolve, reject) => {
+  _onNewTx () {
+    return new Promise((resolve) => {
       this.once('new-tx', () => resolve())
     })
   }
@@ -271,7 +263,7 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   // Pause syncing transactions from electrum
-  async pauseSync (opts) {
+  async pauseSync () {
     return new Promise((resolve) => {
       if (!this._syncManager._isSyncing) return resolve()
       this._syncManager.once('sync-end', () => resolve())
@@ -287,7 +279,7 @@ class WalletPayBitcoin extends WalletPay {
   // @param {String} outgoing.unit - unit of amount
   // @param {String} outgoing.fee - fee to pay in sat/vbyte. example: 10,
   sendTransaction (opts, outgoing) {
-    let notify 
+    let notify
     const p = new Promise((resolve, reject) => {
       const tx = new Transaction({
         network: this.network,
@@ -296,11 +288,11 @@ class WalletPayBitcoin extends WalletPay {
         getInternalAddress: this._getInternalAddress.bind(this),
         syncManager: this._syncManager
       })
-      
-      tx.send(outgoing).then((sent)=>{
-        if(notify) notify(sent)
+
+      tx.send(outgoing).then((sent) => {
+        if (notify) notify(sent)
         this._syncManager.watchTxMempool(sent.txid)
-        this._syncManager.on('tx:mempool:'+sent.txid, () => {
+        this._syncManager.on('tx:mempool:' + sent.txid, () => {
           resolve(sent)
         })
       }).catch((err) => {
@@ -308,7 +300,7 @@ class WalletPayBitcoin extends WalletPay {
       })
     })
 
-    p.broadcasted  = (fn) => {
+    p.broadcasted = (fn) => {
       notify = fn
     }
     return p

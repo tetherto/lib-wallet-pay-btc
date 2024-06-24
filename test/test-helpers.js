@@ -35,7 +35,6 @@ async function regtestNode (opts = {}) {
   return _regtest
 }
 
-
 async function activeWallet (config = {}) {
   const _store = newStore()
   let seed
@@ -72,9 +71,9 @@ async function pause (ms) {
   })
 }
 
-function promiseSteps(arr){
-  let pass = {}
-  for(let state of arr) {
+function promiseSteps (arr) {
+  const pass = {}
+  for (const state of arr) {
     pass[state] = {}
     pass[state].promise = new Promise((resolve, reject) => {
       pass[state].resolve = resolve

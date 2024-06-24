@@ -12,7 +12,7 @@ class VinVout {
 
   async push (utxo) {
     const key = this.vtype === 'vout' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
-    if(await this.store.get(key)) return 
+    if (await this.store.get(key)) return
     return this.store.put(key, utxo)
   }
 

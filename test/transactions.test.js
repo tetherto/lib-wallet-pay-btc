@@ -3,12 +3,10 @@ const {
   activeWallet,
   regtestNode,
   pause,
-  promiseSteps,
   BitcoinCurrency
 } = require('./test-helpers.js')
 
 test.test('sendTransaction', { timeout: 600000 }, async function (t) {
-
   t.test('create transaction, mine and compare result with electrum', async function (t) {
     const regtest = await regtestNode()
     const btcPay = await activeWallet()
@@ -79,24 +77,24 @@ test.test('fund new wallet and spend from it. check balances, confirmations', { 
   const { result: nodeAddr } = await regtest.getNewAddress()
   t.comment('sending utxo to wallet')
   const { result: utxo1 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
-  const { result : utxo2 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  const { result: utxo2 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
   t.comment('waiting for confirmation')
   await btcPay._onNewTx()
   await regtest.mine(1)
   await btcPay._onNewTx()
   await regtest.mine(1)
   await btcPay._onNewTx()
-  let balance = await btcPay.getBalance()
+  const balance = await btcPay.getBalance()
   t.ok(balance.confirmed.toNumber() === 20000000, 'balance added by 0.2 btc')
   const data = {
-    amount : 0.1,
+    amount: 0.1,
     unit: 'main',
     address: nodeAddr,
     fee: 10
   }
   const res = await btcPay.sendTransaction({}, data)
   const spentAmount = res.totalSpent * -1
-  const totalBal = 20000000 
+  const totalBal = 20000000
   t.comment('waiting for confirmation')
   await btcPay._onNewTx()
   await regtest.mine(1)
@@ -116,10 +114,10 @@ test.test('fund new wallet and spend from it. check balances, confirmations', { 
   t.ok(bb.mempool.toNumber() === 0, 'mempool balance is 0')
   t.ok(bb.pending.toNumber() === 0, 'pending balance is 0')
   const confirmedBal = totalBal - res.totalSpent
-  t.ok(bb.confirmed.toNumber() === confirmedBal, 'confirmed balance is '+confirmedBal)
+  t.ok(bb.confirmed.toNumber() === confirmedBal, 'confirmed balance is ' + confirmedBal)
 
   const utxoset = res.utxo.filter((utxo, i) => {
-    if([utxo1, utxo2].includes(utxo.txid)) {
+    if ([utxo1, utxo2].includes(utxo.txid)) {
       return false
     }
     return true
@@ -135,30 +133,29 @@ test.test('Spending whole UTXO for amount, not enough to pay for fees', { timeou
   const addr = await btcPay.getNewAddress()
   const { result: nodeAddr } = await regtest.getNewAddress()
   t.comment('sending utxo to wallet')
-  const { result: utxo1 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
-  const { result : utxo2 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
   t.comment('waiting for confirmation')
   await btcPay._onNewTx()
   await regtest.mine(1)
   await btcPay._onNewTx()
   await regtest.mine(1)
   await btcPay._onNewTx()
-  let balance = await btcPay.getBalance()
+  const balance = await btcPay.getBalance()
   t.ok(balance.confirmed.toNumber() === 20000000, 'balance added by 0.2 btc')
   const data = {
-    amount : 0.2,
+    amount: 0.2,
     unit: 'main',
     address: nodeAddr,
     fee: 10
   }
   try {
-    const res = await btcPay.sendTransaction({}, data)
-  } catch(err) {
+    await btcPay.sendTransaction({}, data)
+  } catch (err) {
     t.ok(err.message.includes('insufficient funds'), ' should insufficient funds')
     await btcPay.destroy()
     t.end()
     return
-
   }
   t.fail('should have thrown error')
 })
@@ -172,17 +169,17 @@ test.test('perform 2 transactions from 1 utxo before confirmation. Spending from
   const addr = await btcPay.getNewAddress()
   const { result: nodeAddr } = await regtest.getNewAddress()
   t.comment('sending utxo to wallet')
-  const { result: utxo1 } = await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
+  await regtest.sendToAddress({ address: addr.address, amount: 0.1 })
   t.comment('waiting for confirmation')
   await btcPay._onNewTx()
   await regtest.mine(1)
   await btcPay._onNewTx()
   await regtest.mine(1)
   await btcPay._onNewTx()
-  let balance = await btcPay.getBalance()
+  const balance = await btcPay.getBalance()
   t.ok(balance.confirmed.toNumber() === 10000000, 'balance added by 0.1 btc')
   const data = {
-    amount : 0.02,
+    amount: 0.02,
     unit: 'main',
     address: nodeAddr,
     fee: 10
@@ -205,5 +202,3 @@ test.test('perform 2 transactions from 1 utxo before confirmation. Spending from
   t.ok(bal.mempool.toNumber() * -1 === totalSent, 'mempool balance matches total spent for tx1 + tx2')
   await btcPay.destroy()
 })
-
-
