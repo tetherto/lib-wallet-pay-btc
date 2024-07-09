@@ -64,7 +64,7 @@ class WalletKeyBitcoin {
   pathToScriptHash (path, addrType) {
     const addr = this.addrFromPath(path, addrType)
     const hash = this.addressToScriptHash(addr.address)
-    return [hash, addr]
+    return {hash, addr}
   }
 }
 

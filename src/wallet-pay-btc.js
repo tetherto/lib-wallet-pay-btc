@@ -217,26 +217,23 @@ class WalletPayBitcoin extends WalletPay {
     })
   }
 
-  async getNewAddress (config = {}) {
-    let path = await this._hdWallet.getLastExtPath()
+  async _getNewAddr(config){
     const addrType = this._addressType
-    const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
-    path = HdWallet.bumpIndex(path)
-    await this._hdWallet.updateLastPath(path)
-    await this._syncManager.watchAddress([hash, addr], 'ext')
-    await this._hdWallet.addAddress(addr)
-    return addr
+    const res  = await this._hdWallet.getNewAddress((path) => {
+      return this.keyManager.pathToScriptHash(path, addrType)
+    })
+    await this._syncManager.watchAddress([res.hash,res.addr], config.inout)
+    return res
+
+  }
+
+  async getNewAddress () {
+    return this._getNewAddr({inout: 'ext'})
+
   }
 
   async _getInternalAddress () {
-    let path = await this._hdWallet.getLastIntPath()
-    const addrType = this._addressType
-    const [hash, addr] = this.keyManager.pathToScriptHash(path, addrType)
-    path = HdWallet.bumpIndex(path)
-    await this._hdWallet.updateLastPath(path)
-    await this._syncManager.watchAddress([hash, addr], 'in')
-    await this._hdWallet.addAddress(addr)
-    return addr
+    return this._getNewAddr({inout: 'in'})
   }
 
   getTransactions (opts) {
@@ -300,9 +297,7 @@ class WalletPayBitcoin extends WalletPay {
       })
     })
 
-    p.broadcasted = (fn) => {
-      notify = fn
-    }
+    p.broadcasted = (fn) => notify = fn
     return p
   }
 
