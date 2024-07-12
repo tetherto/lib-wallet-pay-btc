@@ -238,7 +238,7 @@ class SyncManager extends EventEmitter {
   async _processPath (path, signal) {
     const { keyManager, provider, _halt } = this
 
-    const [scriptHash] = keyManager.pathToScriptHash(path, this._addressType)
+    const {hash:scriptHash} = keyManager.pathToScriptHash(path, this._addressType)
     let txHistory
     try {
       txHistory = await provider.getAddressHistory({}, scriptHash)

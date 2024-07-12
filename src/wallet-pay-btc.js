@@ -223,8 +223,7 @@ class WalletPayBitcoin extends WalletPay {
       return this.keyManager.pathToScriptHash(path, addrType)
     })
     await this._syncManager.watchAddress([res.hash,res.addr], config.inout)
-    return res
-
+    return res.addr
   }
 
   async getNewAddress () {
