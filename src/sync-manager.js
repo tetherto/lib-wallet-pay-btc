@@ -4,12 +4,11 @@ const Bitcoin = require('./currency')
 const UnspentStore = require('./unspent-store.js')
 const { AddressManager, Balance } = require('./address-manager.js')
 
-
 /**
  * Class that manages syncing local state with electrum/blockchain.
  * - Watch for address updates for electrum and update utxo and balances per address
  * - Manage total balance calc
- * 
+ *
 **/
 class SyncManager extends EventEmitter {
   constructor (config) {
@@ -248,7 +247,7 @@ class SyncManager extends EventEmitter {
   async _processPath (path, signal) {
     const { keyManager, provider, _halt } = this
 
-    const {hash:scriptHash} = keyManager.pathToScriptHash(path, this._addressType)
+    const { hash: scriptHash } = keyManager.pathToScriptHash(path, this._addressType)
     let txHistory
     try {
       txHistory = await provider.getAddressHistory({}, scriptHash)

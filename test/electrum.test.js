@@ -28,4 +28,4 @@ test('electrum', async function (t) {
     }))
     await e.close()
   })
-}) 
+})

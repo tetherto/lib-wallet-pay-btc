@@ -217,28 +217,27 @@ class WalletPayBitcoin extends WalletPay {
     })
   }
 
-  async _getNewAddr(config){
+  async _getNewAddr (config) {
     const addrType = this._addressType
-    const res  = await this._hdWallet.getNewAddress((path) => {
+    const res = await this._hdWallet.getNewAddress((path) => {
       return this.keyManager.pathToScriptHash(path, addrType)
     })
-    await this._syncManager.watchAddress([res.hash,res.addr], config.inout)
+    await this._syncManager.watchAddress([res.hash, res.addr], config.inout)
     return res.addr
   }
 
   async getNewAddress () {
-    return this._getNewAddr({inout: 'ext'})
-
+    return this._getNewAddr({ inout: 'ext' })
   }
 
   async _getInternalAddress () {
-    return this._getNewAddr({inout: 'in'})
+    return this._getNewAddr({ inout: 'in' })
   }
 
   /**
    * @description get wallet transaction history
    * @param {function} fn function that gets called with list of transaction. by block number
-   * @retun {Promise} 
+   * @retun {Promise}
    */
   getTransactions (fn) {
     return this._syncManager.getTransactions(fn)
