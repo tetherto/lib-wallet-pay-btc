@@ -245,8 +245,8 @@ class WalletPayBitcoin extends WalletPay {
   /**
    * @description get wallet transaction history
    * @param {function} fn function that gets called with list of transaction. by block number
-   * @retun {Promise}
-   */
+   * @returns {Promise}
+   **/
   getTransactions (fn) {
     return this._syncManager.getTransactions(fn)
   }
@@ -255,8 +255,8 @@ class WalletPayBitcoin extends WalletPay {
    * @description get balance of entire wallet or 1 address
    * @params {object} opts place holder, empty object
    * @param {string?} addr bitcoin address 
-   * @return {object} balance object
-  */
+   * @returns {object} balance object
+  **/
   getBalance (opts, addr) {
     return this._syncManager.getBalance(addr)
   }
