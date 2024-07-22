@@ -24,6 +24,7 @@
     "test:sync": "brittle ./test/sync-manager.test.js",
     "test:send-tx": "brittle ./test/transactions.test.js",
     "test:pay": "brittle ./test/wallet-pay-btc.test.js",
+    "test:key": "brittle ./test/wallet-key-btc.test.js",
     "test:currency": "brittle ./test/currency.test.js"
   },
   "repository": {

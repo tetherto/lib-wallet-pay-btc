@@ -72,7 +72,7 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   await btcPay2.destroy()
 })
 
-test('getNewAddress - address reuse logic', async (t) => {
+solo('getNewAddress - address reuse logic', async (t) => {
   // Generate an new wallet and send some bitcoin to the address
   // generate wallet with same seed, resync and make sure that the address is not reused
 

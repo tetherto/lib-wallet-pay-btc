@@ -21,6 +21,7 @@ class WalletKeyBitcoin {
   setNetwork (network) {
     if (network === 'mainnet') network = 'bitcoin'
     this.network = bitcoin.networks[network]
+    if(!this.network) throw new Error('invalid network passed')
   }
 
   close () {
@@ -54,6 +55,11 @@ class WalletKeyBitcoin {
     }
   }
 
+  /**
+  * @description Generate a script hash from a address
+  * @param {string} addr - bitcoin address
+  * @returns {string} script hash in hex string
+  * */
   addressToScriptHash (addr) {
     const script = bitcoin.address.toOutputScript(addr, this.network)
     const hash = bitcoin.crypto.sha256(script)
@@ -61,6 +67,12 @@ class WalletKeyBitcoin {
     return reversedHash.toString('hex')
   }
 
+  /** 
+  * @description generate a script hash from HD path
+  * @param {string} path HD path
+  * @param {string} addrtype. address type: p2wpkh
+  * @return {Object} Hash as string hex and address object
+  **/
   pathToScriptHash (path, addrType) {
     const addr = this.addrFromPath(path, addrType)
     const hash = this.addressToScriptHash(addr.address)

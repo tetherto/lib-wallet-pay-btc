@@ -23,8 +23,9 @@ test('electrum', async function (t) {
 
     await Promise.all(methods.map(async function (m) {
       const res = await e.rpc(m.method, m.params)
+      console.log(res)
       t.ok(res[m.expected[1]] === m.expected[0], m.method)
     }))
     await e.close()
   })
-})
+}) 

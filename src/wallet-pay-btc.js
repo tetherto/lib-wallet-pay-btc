@@ -235,8 +235,13 @@ class WalletPayBitcoin extends WalletPay {
     return this._getNewAddr({inout: 'in'})
   }
 
-  getTransactions (opts) {
-    return this._syncManager.getTransactions(opts)
+  /**
+   * @description get wallet transaction history
+   * @param {function} fn function that gets called with list of transaction. by block number
+   * @retun {Promise} 
+   */
+  getTransactions (fn) {
+    return this._syncManager.getTransactions(fn)
   }
 
   getBalance (opts, addr) {

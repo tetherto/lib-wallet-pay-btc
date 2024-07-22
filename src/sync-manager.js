@@ -4,6 +4,13 @@ const Bitcoin = require('./currency')
 const UnspentStore = require('./unspent-store.js')
 const { AddressManager, Balance } = require('./address-manager.js')
 
+
+/**
+ * Class that manages syncing local state with electrum/blockchain.
+ * - Watch for address updates for electrum and update utxo and balances per address
+ * - Manage total balance calc
+ * 
+**/
 class SyncManager extends EventEmitter {
   constructor (config) {
     super()
@@ -35,8 +42,11 @@ class SyncManager extends EventEmitter {
   async init () {
     await this._subscribeToScriptHashes()
     this._total = await this._getTotalBal()
+
+    // @desc: Address manager manages sync states per address
     this._addr = new AddressManager({ store: this.store })
     await this._addr.init()
+    // @desc: Unspent store manages state VIN/VOUT for spending btc
     this._unspent = new UnspentStore({ store: this.store })
     await this._unspent.init()
   }
@@ -255,6 +265,10 @@ class SyncManager extends EventEmitter {
     return signal.hasTx
   }
 
+  /**
+   * @description Sync internal wallet state per HD wallet path
+   * @return {Promise}
+   **/
   async syncAccount (opts) {
     if (this._halt || this._isSyncing) throw new Error('halted:' + this._halt + ' is syncing: ' + this._isSyncing)
     const { hdWallet } = this
@@ -288,7 +302,7 @@ class SyncManager extends EventEmitter {
   * @description get balance for an address
   * @param {String} addr optional address if you want to pass in address to get its balance
   * @return {Promise}
-  * */
+  **/
   async getBalance (addr) {
     let total
     if (!addr) {
