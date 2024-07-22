@@ -119,6 +119,7 @@ class WalletPayBitcoin extends WalletPay {
     this.ready = false
     this.currency = Bitcoin
     this.keyManager = config.key_manager || null
+    // @desc: Only supported address type.
     this._addressType = 'p2wpkh'
   }
 
@@ -226,10 +227,17 @@ class WalletPayBitcoin extends WalletPay {
     return res.addr
   }
 
+  /** 
+   * @description Get a new address
+   * @returns {Object}
+   **/
   async getNewAddress () {
     return this._getNewAddr({ inout: 'ext' })
   }
 
+  /**
+   * @description get an internal address
+  **/
   async _getInternalAddress () {
     return this._getNewAddr({ inout: 'in' })
   }
@@ -243,6 +251,12 @@ class WalletPayBitcoin extends WalletPay {
     return this._syncManager.getTransactions(fn)
   }
 
+  /**
+   * @description get balance of entire wallet or 1 address
+   * @params {object} opts place holder, empty object
+   * @param {string?} addr bitcoin address 
+   * @return {object} balance object
+  */
   getBalance (opts, addr) {
     return this._syncManager.getBalance(addr)
   }

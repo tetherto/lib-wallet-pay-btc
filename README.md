@@ -2,6 +2,14 @@
 
 Bitcoin payment method for the wallet library. Powered by Electrum.
 
+## Features:
+- Support for P2WPKH/BIP84 HD path traversal.
+- internal UTXO managment, not reliant on electrum.
+- internal balance calculation. not reliant on electrum.
+- Transaction broadcasting
+- Modular design. 
+
+
 ## Usage
 
 ```javascript
@@ -120,20 +128,6 @@ await btcPay.destroy()
 
 
 ```
-
-## Seashell CLI
-
-Seashell is a REPL Shell for testing and interacting with the wallet. You can create a new wallet, send transactions, get balances and addresses.
-To Access the seashell, run the following command:
-
-```bash
-node cli.js
-```
-
-To see all available commands, type `help` in the shell.
-
-```bash
-```bash
 ## Testing
 
 - There is extensive integration tests for this package. 
