@@ -123,14 +123,16 @@ class WalletPayBitcoin extends WalletPay {
     this._addressType = 'p2wpkh'
   }
 
-  async destroy () {
+  /**
+   * @description This function is called when the instance is shutting down
+   */
+  async _destroy () {
     await this.provider.close()
     await this.pauseSync()
     await this._syncManager.close()
     await this.state.store.close()
     await this._hdWallet.close()
     await this.keyManager.close()
-    await this._postDestroy()
   }
 
   async initialize (wallet) {

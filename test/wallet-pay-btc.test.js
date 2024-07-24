@@ -8,7 +8,9 @@ const {
   activeWallet,
   regtestNode,
   promiseSteps,
-  BitcoinCurrency
+  BitcoinCurrency,
+  rmDataDir,
+  pause
 } = require('./test-helpers.js')
 
 test.configure({ timeout: 60000 })
@@ -72,7 +74,7 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   await btcPay2.destroy()
 })
 
-solo('getNewAddress - address reuse logic', async (t) => {
+test('getNewAddress - address reuse logic', async (t) => {
   // Generate an new wallet and send some bitcoin to the address
   // generate wallet with same seed, resync and make sure that the address is not reused
 
@@ -170,30 +172,6 @@ test('getTransactions', async (t) => {
   if (c !== max) t.fail('tx not received')
 });
 
-// test('Block counter', async (t) => {
-//
-//   const regtest = await regtestNode()
-//   t.comment('create new wallet')
-//   const btcPay = await activeWallet({ newWallet: true })
-//   const p = new Promise((resolve, reject) => {
-//   btcPay.once('new-block', async (block) => {
-//     t.ok(block.diff === 1, 'block diff is 1')
-//     t.ok(block.current - block.last === 1, 'block numbers are correct')
-//     t.comment('mining 5 blocks')
-//     btcPay.on('new-block', async (block) => {
-//       await btcPay.destroy()
-//       t.ok(block.diff === 5, 'block diff is 5')
-//       t.ok(block.current - block.last === 5, 'block numbers are correct')
-//       resolve()
-//     })
-//     regtest.mine({blocks : 5})
-//   })
-//   t.comment('mining')
-//   })
-//   await regtest.mine({ blocks : 1})
-//
-//   return p
-// });
 
 (async () => {
   test('balance check', async (tst) => {
@@ -258,7 +236,7 @@ test('getTransactions', async (t) => {
   })
 })()
 
-solo('pauseSync - internal and external', async () => {
+test('pauseSync - internal and external', async () => {
   async function runTest (sType, opts) {
     const btcPay = await activeWallet()
     const max = opts.max
@@ -340,6 +318,52 @@ test('syncing paths in order', async (t) => {
   await runTest('internal', { restart: true })
 })
 
+solo('syncTransaction - catch up missed tx', async (t) => {
+  const regtest = await regtestNode()
+  t.comment('new  wallet')
+  await rmDataDir()
+  const btcPay = await activeWallet({ newWallet: true, tmpStore: true })
+  await btcPay.syncTransactions()
+  const seed = btcPay.keyManager.seed.exportSeed({ string: false  })
+  t.ok(seed.mnemonic, 'seed phrase exported')
+  const payAddr = await btcPay.getNewAddress()
+  const payAddr2 = await btcPay.getNewAddress()
+  const amount = 0.01
+  const sendAmt = new BitcoinCurrency(amount,'main')
+  t.comment('generate address and send btc')
+  await regtest.sendToAddress({ address: payAddr.address, amount })
+  await regtest.mine(2)
+  t.comment('waiting for tx to be detected')
+  await btcPay._onNewTx()
+  const bal1 = await btcPay.getBalance({})
+  t.ok(bal1.consolidated.eq(new BitcoinCurrency(amount,'main'), 'balances match'))
+  t.comment('destroying instance')
+  await btcPay.destroy()
+
+  t.comment('sending btc again '+ payAddr2.path)
+  await regtest.sendToAddress({ address: payAddr2.address, amount })
+  await regtest.mine(2)
+
+  await pause(10000)
+  const bp = await activeWallet({ newWallet : false, phrase: seed.mnemonic, tmpStore: true })
+  const bpseed = bp.keyManager.seed.exportSeed({ string: false })
+  t.ok(bpseed.seed === seed.seed, 'new instance has same seed as prev instance')
+
+  const p = [payAddr, payAddr2]
+  let c = 0
+  bp.on('synced-path', async (pt, path) => {
+    const  pay = p[c]
+    t.ok(path === pay.path, 'path matches')
+    const b = await bp.getBalance({}, pay.address)
+    t.ok(b.consolidated.eq(sendAmt), 'address balance matches')
+    c++
+    if(c === p.length) bp.pauseSync()
+  })
+
+  await bp.syncTransactions()
+  await bp.destroy()
+})
+
 test('syncTransaction - balance check', async (t) => {
   const regtest = await regtestNode()
   t.comment('create new wallet')
@@ -347,15 +371,16 @@ test('syncTransaction - balance check', async (t) => {
   // Send some bitcoin to the address and check if the amounts match as its getting sycned
   const payAddr = await btcPay.getNewAddress()
   const amount = 0.0888
-  t.comment('generate address and send btc')
+  t.comment('generate address and send btc '+ payAddr.path)
   await regtest.sendToAddress({ address: payAddr.address, amount })
   t.comment('mining blocks')
   await regtest.mine(2)
   t.comment('waiting for electrum to update')
   await btcPay._onNewTx()
   async function checkBal (pt, path, hasTx, gapCount) {
-    const [sc, addr] = btcPay.keyManager.pathToScriptHash(path, 'p2wpkh')
-    const eBal = await btcPay.provider._getBalance(sc)
+    t.ok(path === payAddr.path, 'first path is checked')
+    const { hash, addr } = btcPay.keyManager.pathToScriptHash(path, 'p2wpkh')
+    const eBal = await btcPay.provider._getBalance(hash)
     let bal
     try {
       bal = await btcPay.getBalance({}, addr.address)

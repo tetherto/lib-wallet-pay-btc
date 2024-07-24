@@ -5,6 +5,7 @@ const BIP39Seed = require('wallet-seed-bip39')
 const Electrum = require('../src/electrum.js')
 const { bitcoin } = require('../../wallet-test-tools/')
 const BitcoinCurr = require('../src/currency')
+const fs = require('fs')
 
 async function newElectrum (config = {}) {
   config.host = 'localhost' || config.host
@@ -20,9 +21,11 @@ async function newElectrum (config = {}) {
   return e
 }
 
-function newStore () {
-  return new WalletStoreHyperbee()
-  // return new WalletStoreHyperbee({ store_path: './test-store' })
+const _datadir  = './test-store'
+function newStore (tmpStore) {
+  return tmpStore ? 
+    new WalletStoreHyperbee({ store_path: _datadir }) : 
+    new WalletStoreHyperbee()
 }
 
 let _regtest
@@ -35,17 +38,31 @@ async function regtestNode (opts = {}) {
   return _regtest
 }
 
+
+/**
+  * @description Create a new wallet isntance 
+  * @param {Boolean} config.newWallet generate a new wallet
+  * @param {string} config.phrase seed phrase for a wallet
+  * @param {Store} config.store an instance of a store
+  * @param {boolean} config.tmpStore generate a temporary file store
+  * @return {Promise<BitcoinPay>}
+*/
 async function activeWallet (config = {}) {
   const _store = newStore()
   let seed
+  const phrase = 'sell clock better horn digital prevent image toward sort first voyage detail inner regular improve'
 
   if (config.newWallet) {
     seed = await BIP39Seed.generate()
   } else {
-    seed = await BIP39Seed.generate('sell clock better horn digital prevent image toward sort first voyage detail inner regular improve')
+    seed = await BIP39Seed.generate(config.phrase || phrase)
   }
 
-  const store = config.store || _store
+  let store = config.store || _store
+  if(config.tmpStore) {
+    store = newStore(config.tmpStore)
+
+  }
 
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
@@ -58,7 +75,6 @@ async function activeWallet (config = {}) {
   })
 
   await btcPay.initialize({})
-
   return btcPay
 }
 
@@ -83,7 +99,12 @@ function promiseSteps (arr) {
   return pass
 }
 
+async function rmDataDir() {
+ fs.rmSync(_datadir, {recursive: true, force: true})
+}
+
 module.exports = {
+  rmDataDir,
   BitcoinPay,
   WalletStore: WalletStoreHyperbee,
   KeyManager,

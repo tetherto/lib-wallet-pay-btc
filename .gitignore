@@ -10,6 +10,7 @@ lerna-debug.log*
 ./cli/data
 ./cli/config.json
 watch-dir
+test-store
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
