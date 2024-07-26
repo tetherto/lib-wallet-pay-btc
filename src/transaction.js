@@ -2,6 +2,8 @@ const bitcoin = require('bitcoinjs-lib')
 const { EventEmitter } = require('events')
 const Bitcoin = require('./currency.js')
 
+const DUST_LIMIT = 546
+
 class Transaction extends EventEmitter {
   constructor (config) {
     super()
@@ -30,6 +32,7 @@ class Transaction extends EventEmitter {
   }
 
   async _generateRawTx (utxoSet, fee, sendAmount, address, changeAddr, weight = 1) {
+    if(+sendAmount.toBaseUnit() <= DUST_LIMIT ) throw new Error('send amount must be bigger than dusi limit '+DUST_LIMIT + ' got: '+ sendAmount.toBaseUnit())
     const { keyManager, network } = this
     const { utxo, total } = utxoSet
     const psbt = new bitcoin.Psbt({ network: bitcoin.networks[network] })
@@ -58,7 +61,7 @@ class Transaction extends EventEmitter {
     const totalFee = Bitcoin.BN(fee).times(weight)
     const change = Bitcoin.BN(total.toBaseUnit()).minus(sendAmount.toBaseUnit()).minus(totalFee).toNumber()
 
-    if (change < 0) {
+    if (change < DUST_LIMIT) {
       // Current UTXO set is not enought to pay for amount + fee. we need to get more UTXO.
       // If there is no more UTXO. this will throw error
       await this._syncManager.unlockUtxo(false)
@@ -67,15 +70,19 @@ class Transaction extends EventEmitter {
       return await this._generateRawTx(newUtxoSet, fee, sendAmount, address, changeAddr, weight)
     }
 
+    console.log(sendAmount, change)
     psbt.addOutput({
       address,
       value: +sendAmount.toBaseUnit()
     })
 
-    psbt.addOutput({
-      address: changeAddr.address,
-      value: change
-    })
+    if(change !== 0) {
+      psbt.addOutput({
+        address: changeAddr.address,
+        value: change
+      })
+    }
+
     utxo.forEach((u, index) => {
       psbt.signInputHD(index, keyManager.bip32)
     })

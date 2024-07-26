@@ -6,8 +6,10 @@ const { AddressManager, Balance } = require('./address-manager.js')
 
 /**
  * Class that manages syncing local state with electrum/blockchain.
- * - Watch for address updates for electrum and update utxo and balances per address
- * - Manage total balance calc
+ *
+ * * Watch for address updates for electrum and update utxo and balances per address
+ *
+ * * Manage total balance calc
  *
 **/
 class SyncManager extends EventEmitter {

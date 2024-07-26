@@ -275,8 +275,7 @@ test('pauseSync - internal and external', async () => {
   await runTest('internal', { restart: true, max: 10 })
 })
 
-// Sycning paths must be in order
-test('syncing paths in order', async (t) => {
+test('syncing paths in order', async () => {
   async function runTest (sType, opts) {
     const btcPay = await activeWallet()
     const max = 5
@@ -318,10 +317,11 @@ test('syncing paths in order', async (t) => {
   await runTest('internal', { restart: true })
 })
 
-solo('syncTransaction - catch up missed tx', async (t) => {
+test('syncTransaction - catch up missed tx', async (t) => {
   const regtest = await regtestNode()
   t.comment('new  wallet')
   await rmDataDir()
+  // New wallet, using hyperbee backend 
   const btcPay = await activeWallet({ newWallet: true, tmpStore: true })
   await btcPay.syncTransactions()
   const seed = btcPay.keyManager.seed.exportSeed({ string: false  })
@@ -340,15 +340,22 @@ solo('syncTransaction - catch up missed tx', async (t) => {
   t.comment('destroying instance')
   await btcPay.destroy()
 
-  t.comment('sending btc again '+ payAddr2.path)
+  t.comment('sending btc'+ payAddr2.path)
   await regtest.sendToAddress({ address: payAddr2.address, amount })
   await regtest.mine(2)
 
   await pause(10000)
+  t.comment('create new instance with same seed')
   const bp = await activeWallet({ newWallet : false, phrase: seed.mnemonic, tmpStore: true })
   const bpseed = bp.keyManager.seed.exportSeed({ string: false })
   t.ok(bpseed.seed === seed.seed, 'new instance has same seed as prev instance')
+  
+  let bal = await bp.getBalance({}, payAddr.address)
+  t.ok(bal.consolidated.eq(sendAmt), 'first tx balance found')
+  bal = await bp.getBalance({}, payAddr2.address)
+  t.ok(bal.consolidated.toNumber() === 0, 'second tx balance is zero')
 
+  t.comment('sync wallet')
   const p = [payAddr, payAddr2]
   let c = 0
   bp.on('synced-path', async (pt, path) => {

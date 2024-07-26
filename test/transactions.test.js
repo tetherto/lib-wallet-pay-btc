@@ -202,3 +202,52 @@ test.test('perform 2 transactions from 1 utxo before confirmation. Spending from
   t.ok(bal.mempool.toNumber() * -1 === totalSent, 'mempool balance matches total spent for tx1 + tx2')
   await btcPay.destroy()
 })
+
+
+// 
+//
+// Uncomment the transaction below to keep doing TX
+//
+//
+
+//test.solo('sweep wallet ', { timeout: 10000000 }, async (t)=>{
+//  // Leave this running to keep doing transactions
+//  const regtest = await regtestNode()
+//  const btcPay = await activeWallet({ newWallet: true })
+//  const amount = 0.1
+//
+//  t.comment('funding new wallet')
+//  const addr = await btcPay.getNewAddress()
+//  await regtest.sendToAddress({ address: addr.address, amount })
+//  const { result: nodeAddr } = await regtest.getNewAddress()
+//  await regtest.mine(3)
+//  await btcPay._onNewTx()
+//  let bal = await btcPay.getBalance()
+//  t.ok(+bal.consolidated.toMainUnit() === amount, 'balance matches')
+//
+//  let x = 0
+//  while ( bal.consolidated.toNumber() !== 0) {
+//    console.log(x)
+//    x++
+//    const data = {
+//      amount: 700,
+//      unit: 'base',
+//      address: nodeAddr,
+//      fee: 5,
+//      deductFee: true
+//    }
+//    t.comment('sending')
+//    let sent
+//    try {
+//      sent = await btcPay.sendTransaction({}, data)
+//    } catch (err) {
+//      console.log(err)
+//    }
+//    await regtest.mine(1)
+//    await btcPay._onNewTx()
+//
+//    bal  = await btcPay.getBalance()
+//    t.comment('new balance: '+bal.consolidated.toMainUnit())
+//
+//  }
+//})

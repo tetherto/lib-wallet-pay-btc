@@ -101,10 +101,9 @@ class WalletPayBitcoin extends WalletPay {
   * @desc WalletPayBitcoin
   * @param {Object} config - Config
   * @param {Object} [config.provider=Electrum]- block data provider
-  * @param {Object} [electrum config]. See Electrum.js for all options
   * @param {Object} config.store - store instance
   * @param {Object} [config.key_manager=WalletKeyBtc] - key manager instance.
-  * @param {Seed} config.seed - seed for key manager.
+  * @param {Seed} [config.seed] - seed for key manager.
   * @param {String} config.network - blockchain network
   * @param {Number} [config.gapLimit=20] - gap limit. How far to look ahead when scanning for balances
   * @param {Number} [config.min_block_confirm=1] - minimum number of block confirmations
@@ -135,6 +134,10 @@ class WalletPayBitcoin extends WalletPay {
     await this.keyManager.close()
   }
 
+  /**
+   * @description Start bitcoin asset.
+   * @param {Wallet} wallet an instance of Wallet
+   **/
   async initialize (wallet) {
     if (this.ready) return
 
@@ -238,7 +241,7 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   /**
-   * @description get an internal address
+   * @description get an internal change  address
   **/
   async _getInternalAddress () {
     return this._getNewAddr({ inout: 'in' })
@@ -257,7 +260,7 @@ class WalletPayBitcoin extends WalletPay {
    * @description get balance of entire wallet or 1 address
    * @params {object} opts place holder, empty object
    * @param {string?} addr bitcoin address 
-   * @returns {object} balance object
+   * @returns {Balance} balance object
   **/
   getBalance (opts, addr) {
     return this._syncManager.getBalance(addr)

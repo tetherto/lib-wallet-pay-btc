@@ -1,5 +1,8 @@
 const Bitcoin = require('./currency')
 
+/**
+ * @description Class for storing Bitcoin VIN and VOUT
+**/
 class VinVout {
   constructor (config, vtype) {
     this.store = config.store
@@ -44,6 +47,10 @@ class VinVout {
   }
 }
 
+
+/**
+ * @description class for tracking vin and vout, for spending btc
+*/
 class UnspentStore {
   constructor (config) {
     this.store = config.store.newInstance({ name: 'utxo' })
@@ -132,6 +139,9 @@ class UnspentStore {
     this.ready = true
   }
 
+  /**
+  * @description collect unspent outputs for performing a tx
+  */
   async _smallToLarge (amount) {
     let total = new Bitcoin(0, amount.type)
     const utxo = []

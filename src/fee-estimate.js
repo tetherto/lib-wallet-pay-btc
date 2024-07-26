@@ -13,7 +13,7 @@ class MempoolSpace {
     return new Promise((resolve, reject) => {
       const { hostname, path } = this
 
-      if (this._latest && (Date.now() - this.latest_t) < this._fee_timer) return resolve(this._latest)
+      if (this._latest && (Date.now() - this._latest_t) < this._fee_timer) return resolve(this._latest)
 
       const options = {
         hostname,
