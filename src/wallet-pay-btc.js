@@ -144,6 +144,7 @@ class WalletPayBitcoin extends WalletPay {
     // @desc use default key manager
     if (!this.keyManager) {
       this.keyManager = new (require('./wallet-key-btc.js'))({ seed: wallet.seed, network: this.network })
+      await this.keyManager.init()
     }
 
     // Add asset to wallet
