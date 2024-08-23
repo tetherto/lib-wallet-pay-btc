@@ -85,11 +85,7 @@ class BlockCounter extends EventEmitter {
   }
 
   async _emitBlock (block) {
-    const events = this.rawListeners('new-block')
-
-    await Promise.all(events.map(async (event) => {
-      return event(block)
-    }))
+    this.emit('new-block', block)
   }
 }
 
