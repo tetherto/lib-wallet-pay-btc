@@ -224,13 +224,13 @@ class SyncManager extends EventEmitter {
   * @param {Array} txHistory transaction history
   * @return {Promise}
   * */
-  async _processHistory (txHistory) {
+  async _processHistory (txHistory, path) {
     const { _addr } = this
 
     txHistory = await Promise.all(txHistory.map(async (tx) => {
       const txState = this._getTxState(tx)
-      await this._processUtxo(tx.out, 'out', txState, tx.fee, tx.txid)
-      await this._processUtxo(tx.in, 'in', txState, 0, tx.txid)
+      await this._processUtxo(tx.out, 'out', txState, tx.fee, tx.txid, path)
+      await this._processUtxo(tx.in, 'in', txState, 0, tx.txid, path)
       if (tx.height === 0 && !tx.mempool_first_seen) {
         tx.mempool_ts = Date.now()
       }
@@ -262,7 +262,7 @@ class SyncManager extends EventEmitter {
       // increase gap count if address has no tx
       return signal.noTx
     }
-    await this._processHistory(txHistory)
+    await this._processHistory(txHistory, path)
     return signal.hasTx
   }
 
@@ -277,6 +277,7 @@ class SyncManager extends EventEmitter {
 
     if (opts?.restart) {
       await hdWallet.resetSyncState()
+      await this._addr.clear()
     }
 
     await hdWallet.eachAccount(async (syncState, signal) => {
@@ -329,19 +330,33 @@ class SyncManager extends EventEmitter {
   * @param {String} txState mempool, confirmed, pending
   * @param {Number} txFee fee for tx
   * @param {Object} addr address object
-  * @param {String} txid transaction id
+  * @param {String} path options hd path of utxo list
   * @return {Promise}
   * */
-  async _processUtxo (utxoList, inout, txState, txFee = 0, txid) {
+  async _processUtxo (utxoList, inout, txState, txFee = 0, path) {
     const { _addr, _total, hdWallet } = this
 
     return Promise.all(utxoList.map(async (utxo) => {
       const bal = await _addr.get(utxo.address)
       const addr = await hdWallet.getAddress(utxo.address)
-      if (!bal || !addr) return
+
+      if (!bal) {
+        await _addr.newAddress(utxo.address)
+      } 
+
+      if(path && !addr) {
+        const addrObj = this.keyManager.pathToScriptHash(path, 'p2wpkh')
+        if(addrObj.addr.address !== utxo.address) return
+        await hdWallet.addAddress(addrObj.addr)
+      } else if(!addr) {
+        return 
+      }
       // point is the txid:vout index. Unique id for utxo
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
       // set public keys for utxo, as they will be needed for signing tx
+
+      if(bal[inout].getTx(txState, point)) return
+      
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
 

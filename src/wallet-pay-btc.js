@@ -168,7 +168,6 @@ class WalletPayBitcoin extends WalletPay {
     this.state = new StateDb({
       store: this.store.newInstance({ name: 'state' })
     })
-
     if (!this.provider.isConnected()) {
       await this.provider.connect()
     }

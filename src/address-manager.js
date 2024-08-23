@@ -96,7 +96,9 @@ class AddressManager {
   }
 
   async clear () {
-    this.store.clear()
+    await this.store.clear()
+    await this.history.clear()
+    await this.outgoings.clear()
   }
 
   async newAddress (addr) {

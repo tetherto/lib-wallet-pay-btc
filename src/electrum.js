@@ -82,7 +82,7 @@ class Electrum extends EventEmitter {
     super()
     this._subscribe()
     this.port = config.port || 8001
-    this.host = config.host || 'localhost'
+    this.host = config.host || 'http://127.0.0.1'
     this._net = config.net || require('net')
     this.clientState = 0
     this.requests = new Map()

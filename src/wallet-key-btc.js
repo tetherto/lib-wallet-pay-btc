@@ -5,7 +5,7 @@ const bitcoin = require('bitcoinjs-lib')
 async function loadWASM() {
   const { BIP32Factory } = require('bip32')
   const ecc = require('tiny-secp256k1')
-  await ecc 
+  ecc = await ecc 
   bip32 = BIP32Factory(ecc)
 
 }
