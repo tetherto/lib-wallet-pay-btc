@@ -248,7 +248,7 @@ class WalletPayBitcoin extends WalletPay {
    * @param {function} fn function that gets called with list of transaction. by block number
    * @returns {Promise}
    **/
-  getTransactions (fn) {
+  getTransactions (opts, fn) {
     return this._syncManager.getTransactions(fn)
   }
 
