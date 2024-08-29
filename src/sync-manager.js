@@ -229,8 +229,8 @@ class SyncManager extends EventEmitter {
 
     txHistory = await Promise.all(txHistory.map(async (tx) => {
       const txState = this._getTxState(tx)
-      await this._processUtxo(tx.out, 'out', txState, tx.fee, tx.txid, path)
-      await this._processUtxo(tx.in, 'in', txState, 0, tx.txid, path)
+      await this._processUtxo(tx.out, 'out', txState, tx.fee, path)
+      await this._processUtxo(tx.in, 'in', txState, 0, path)
       if (tx.height === 0 && !tx.mempool_first_seen) {
         tx.mempool_ts = Date.now()
       }
