@@ -338,7 +338,7 @@ class SyncManager extends EventEmitter {
 
     return Promise.all(utxoList.map(async (utxo) => {
       let bal = await _addr.get(utxo.address)
-      const addr = await hdWallet.getAddress(utxo.address)
+      let addr = await hdWallet.getAddress(utxo.address)
 
       if (!bal) {
         await _addr.newAddress(utxo.address)
@@ -349,6 +349,7 @@ class SyncManager extends EventEmitter {
         const addrObj = this.keyManager.pathToScriptHash(path, 'p2wpkh')
         if(addrObj.addr.address !== utxo.address) return
         await hdWallet.addAddress(addrObj.addr)
+        addr = await hdWallet.getAddress(addrObj.addr.address)
       } else if(!addr) {
         return 
       }

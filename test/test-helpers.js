@@ -63,13 +63,14 @@ async function activeWallet (config = {}) {
     store = newStore(config.tmpStore)
 
   }
-
+  const km = new KeyManager({
+      seed
+  })
+  await km.init()
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum({ store }),
-    key_manager: new KeyManager({
-      seed
-    }),
+    key_manager: km,
     store,
     network: 'regtest'
   })

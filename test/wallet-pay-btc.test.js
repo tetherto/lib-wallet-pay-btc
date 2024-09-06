@@ -16,12 +16,14 @@ const {
 test.configure({ timeout: 60000 })
 
 test('Create an instances of WalletPayBitcoin', async function (t) {
+  const km = new KeyManager({
+    seed: await BIP39Seed.generate()
+  })
+  await km.init()
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
+    key_manager:km,
     provider: await newElectrum(),
-    key_manager: new KeyManager({
-      seed: await BIP39Seed.generate()
-    }),
     store: new WalletStore(),
     network: 'regtest'
   })
@@ -35,12 +37,14 @@ test('Create an instances of WalletPayBitcoin', async function (t) {
 test('getNewAddress no duplicate addresses, after recreation', async function (t) {
   const store = new WalletStore()
   const seed = await BIP39Seed.generate()
+  const km = new KeyManager({
+    seed
+  })
+  await km.init()
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum(),
-    key_manager: new KeyManager({
-      seed
-    }),
+    key_manager:km,
     store,
     network: 'regtest'
   })
@@ -58,9 +62,7 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   const btcPay2 = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum(),
-    key_manager: new KeyManager({
-      seed
-    }),
+    key_manager: km,
     store,
     network: 'regtest'
   })
@@ -77,16 +79,18 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
 test('getNewAddress - address reuse logic', async (t) => {
   // Generate an new wallet and send some bitcoin to the address
   // generate wallet with same seed, resync and make sure that the address is not reused
+  const seed = await BIP39Seed.generate()
 
   t.comment('create new wallet')
+  let km = new KeyManager({
+    seed  
+  })
+  await km.init()
   const regtest = await regtestNode()
-  const seed = await BIP39Seed.generate()
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum(),
-    key_manager: new KeyManager({
-      seed
-    }),
+    key_manager: km,
     store: new WalletStore(),
     network: 'regtest'
   })
@@ -110,13 +114,14 @@ test('getNewAddress - address reuse logic', async (t) => {
   await btcPay.syncTransactions()
 
   t.comment('create second wallet with seed of previous wallet')
-
+  km = new KeyManager({
+    seed  
+  })
+  await km.init()
   const btcPay2 = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum(),
-    key_manager: new KeyManager({
-      seed
-    }),
+    key_manager: km,
     store: new WalletStore(),
     network: 'regtest'
   })
@@ -155,7 +160,7 @@ test('getTransactions', async (t) => {
   let last = 0
   const max = 5
   let c = 0
-  await btcPay.getTransactions(async (tx) => {
+  await btcPay.getTransactions({}, async (tx) => {
     const h = tx[0].height
     if (!last) {
       last = h
@@ -410,12 +415,14 @@ test('syncTransaction - balance check', async (t) => {
 test('bip84 test vectors', async function (t) {
   // LINK: https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki
   const mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
+  const km = new KeyManager({
+    seed: await BIP39Seed.generate(mnemonic)
+  })
+  await km.init()
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum(),
-    key_manager: new KeyManager({
-      seed: await BIP39Seed.generate(mnemonic)
-    }),
+    key_manager: km,
     store: new WalletStore(),
     network: 'bitcoin'
   })
@@ -441,12 +448,15 @@ test('bip84 test vectors', async function (t) {
   t.ok(changeAddr2.path === "m/84'/0'/0'/1/1", 'second change path')
   t.ok(changeAddr2.address === 'bc1qggnasd834t54yulsep6fta8lpjekv4zj6gv5rf', 'second change address')
 
+  const km2 = new KeyManager({
+    seed: await BIP39Seed.generate(mnemonic)
+  })
+  await km2.init()
+
   const bp = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum(),
-    key_manager: new KeyManager({
-      seed: await BIP39Seed.generate()
-    }),
+    key_manager: km2,
     store: new WalletStore(),
     network: 'bitcoin'
   })
