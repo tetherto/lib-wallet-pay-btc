@@ -337,11 +337,12 @@ class SyncManager extends EventEmitter {
     const { _addr, _total, hdWallet } = this
 
     return Promise.all(utxoList.map(async (utxo) => {
-      const bal = await _addr.get(utxo.address)
+      let bal = await _addr.get(utxo.address)
       const addr = await hdWallet.getAddress(utxo.address)
 
       if (!bal) {
         await _addr.newAddress(utxo.address)
+        bal = await _addr.get(utxo.address)
       } 
 
       if(path && !addr) {
