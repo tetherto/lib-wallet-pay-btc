@@ -22,7 +22,7 @@ test('Create an instances of WalletPayBitcoin', async function (t) {
   await km.init()
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
-    key_manager:km,
+    key_manager: km,
     provider: await newElectrum(),
     store: new WalletStore(),
     network: 'regtest'
@@ -44,7 +44,7 @@ test('getNewAddress no duplicate addresses, after recreation', async function (t
   const btcPay = new BitcoinPay({
     asset_name: 'btc',
     provider: await newElectrum(),
-    key_manager:km,
+    key_manager: km,
     store,
     network: 'regtest'
   })
@@ -83,7 +83,7 @@ test('getNewAddress - address reuse logic', async (t) => {
 
   t.comment('create new wallet')
   let km = new KeyManager({
-    seed  
+    seed
   })
   await km.init()
   const regtest = await regtestNode()
@@ -115,7 +115,7 @@ test('getNewAddress - address reuse logic', async (t) => {
 
   t.comment('create second wallet with seed of previous wallet')
   km = new KeyManager({
-    seed  
+    seed
   })
   await km.init()
   const btcPay2 = new BitcoinPay({
@@ -176,7 +176,6 @@ test('getTransactions', async (t) => {
   })
   if (c !== max) t.fail('tx not received')
 });
-
 
 (async () => {
   test('balance check', async (tst) => {
@@ -326,35 +325,35 @@ test('syncTransaction - catch up missed tx', async (t) => {
   const regtest = await regtestNode()
   t.comment('new  wallet')
   await rmDataDir()
-  // New wallet, using hyperbee backend 
+  // New wallet, using hyperbee backend
   const btcPay = await activeWallet({ newWallet: true, tmpStore: true })
   await btcPay.syncTransactions()
-  const seed = btcPay.keyManager.seed.exportSeed({ string: false  })
+  const seed = btcPay.keyManager.seed.exportSeed({ string: false })
   t.ok(seed.mnemonic, 'seed phrase exported')
   const payAddr = await btcPay.getNewAddress()
   const payAddr2 = await btcPay.getNewAddress()
   const amount = 0.01
-  const sendAmt = new BitcoinCurrency(amount,'main')
+  const sendAmt = new BitcoinCurrency(amount, 'main')
   t.comment('generate address and send btc')
   await regtest.sendToAddress({ address: payAddr.address, amount })
   await regtest.mine(2)
   t.comment('waiting for tx to be detected')
   await btcPay._onNewTx()
   const bal1 = await btcPay.getBalance({})
-  t.ok(bal1.consolidated.eq(new BitcoinCurrency(amount,'main'), 'balances match'))
+  t.ok(bal1.consolidated.eq(new BitcoinCurrency(amount, 'main'), 'balances match'))
   t.comment('destroying instance')
   await btcPay.destroy()
 
-  t.comment('sending btc'+ payAddr2.path)
+  t.comment('sending btc' + payAddr2.path)
   await regtest.sendToAddress({ address: payAddr2.address, amount })
   await regtest.mine(2)
 
   await pause(10000)
   t.comment('create new instance with same seed')
-  const bp = await activeWallet({ newWallet : false, phrase: seed.mnemonic, tmpStore: true })
+  const bp = await activeWallet({ newWallet: false, phrase: seed.mnemonic, tmpStore: true })
   const bpseed = bp.keyManager.seed.exportSeed({ string: false })
   t.ok(bpseed.seed === seed.seed, 'new instance has same seed as prev instance')
-  
+
   let bal = await bp.getBalance({}, payAddr.address)
   t.ok(bal.consolidated.eq(sendAmt), 'first tx balance found')
   bal = await bp.getBalance({}, payAddr2.address)
@@ -364,12 +363,12 @@ test('syncTransaction - catch up missed tx', async (t) => {
   const p = [payAddr, payAddr2]
   let c = 0
   bp.on('synced-path', async (pt, path) => {
-    const  pay = p[c]
+    const pay = p[c]
     t.ok(path === pay.path, 'path matches')
     const b = await bp.getBalance({}, pay.address)
     t.ok(b.consolidated.eq(sendAmt), 'address balance matches')
     c++
-    if(c === p.length) bp.pauseSync()
+    if (c === p.length) bp.pauseSync()
   })
 
   await bp.syncTransactions()
@@ -383,7 +382,7 @@ test('syncTransaction - balance check', async (t) => {
   // Send some bitcoin to the address and check if the amounts match as its getting sycned
   const payAddr = await btcPay.getNewAddress()
   const amount = 0.0888
-  t.comment('generate address and send btc '+ payAddr.path)
+  t.comment('generate address and send btc ' + payAddr.path)
   await regtest.sendToAddress({ address: payAddr.address, amount })
   t.comment('mining blocks')
   await regtest.mine(2)

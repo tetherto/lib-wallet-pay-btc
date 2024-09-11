@@ -37,5 +37,10 @@
   "bugs": {
     "url": "https://github.com/tetherto/lib-wallet-pay-btc/issues"
   },
-  "homepage": "https://github.com/tetherto/lib-wallet-pay-btc.git"
+  "homepage": "https://github.com/tetherto/lib-wallet-pay-btc.git",
+  "standard" : {
+    "ignore": [
+      "/test/*.js"
+    ]
+  }
 }

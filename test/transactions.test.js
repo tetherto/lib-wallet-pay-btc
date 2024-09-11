@@ -203,14 +203,13 @@ test.test('perform 2 transactions from 1 utxo before confirmation. Spending from
   await btcPay.destroy()
 })
 
-
-// 
+//
 //
 // Uncomment the transaction below to keep doing TX
 //
 //
 
-//test.solo('sweep wallet ', { timeout: 10000000 }, async (t)=>{
+// test.solo('sweep wallet ', { timeout: 10000000 }, async (t)=>{
 //  // Leave this running to keep doing transactions
 //  const regtest = await regtestNode()
 //  const btcPay = await activeWallet({ newWallet: true })
@@ -250,4 +249,4 @@ test.test('perform 2 transactions from 1 utxo before confirmation. Spending from
 //    t.comment('new balance: '+bal.consolidated.toMainUnit())
 //
 //  }
-//})
+// })

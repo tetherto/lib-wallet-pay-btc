@@ -228,7 +228,7 @@ class WalletPayBitcoin extends WalletPay {
     return res.addr
   }
 
-  /** 
+  /**
    * @description Get a new address
    * @returns {Object}
    **/
@@ -255,7 +255,7 @@ class WalletPayBitcoin extends WalletPay {
   /**
    * @description get balance of entire wallet or 1 address
    * @params {object} opts place holder, empty object
-   * @param {string?} addr bitcoin address 
+   * @param {string?} addr bitcoin address
    * @returns {Balance} balance object
   **/
   getBalance (opts, addr) {
@@ -315,7 +315,9 @@ class WalletPayBitcoin extends WalletPay {
       })
     })
 
-    p.broadcasted = (fn) => notify = fn
+    p.broadcasted = (fn) => {
+      notify = fn
+    }
     return p
   }
 

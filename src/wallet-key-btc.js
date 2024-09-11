@@ -1,13 +1,11 @@
-
 let bip32
 const bitcoin = require('bitcoinjs-lib')
 
-async function loadWASM() {
+async function loadWASM () {
   const { BIP32Factory } = require('bip32')
-  let  ecc = require('tiny-secp256k1')
-  ecc = await ecc 
+  let ecc = require('tiny-secp256k1')
+  ecc = await ecc
   bip32 = BIP32Factory(ecc)
-
 }
 
 class WalletKeyBitcoin {
@@ -15,8 +13,7 @@ class WalletKeyBitcoin {
     this._config = config
   }
 
-
-  async init() {
+  async init () {
     await loadWASM()
     const config = this._config
     if (config.seed) {
@@ -30,7 +27,6 @@ class WalletKeyBitcoin {
     if (config.network) {
       this.setNetwork(config.network)
     }
-
   }
 
   setNetwork (network) {

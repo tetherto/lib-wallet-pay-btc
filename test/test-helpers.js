@@ -21,11 +21,11 @@ async function newElectrum (config = {}) {
   return e
 }
 
-const _datadir  = './test-store'
+const _datadir = './test-store'
 function newStore (tmpStore) {
-  return tmpStore ? 
-    new WalletStoreHyperbee({ store_path: _datadir }) : 
-    new WalletStoreHyperbee()
+  return tmpStore
+    ? new WalletStoreHyperbee({ store_path: _datadir })
+    : new WalletStoreHyperbee()
 }
 
 let _regtest
@@ -38,9 +38,8 @@ async function regtestNode (opts = {}) {
   return _regtest
 }
 
-
 /**
-  * @description Create a new wallet isntance 
+  * @description Create a new wallet isntance
   * @param {Boolean} config.newWallet generate a new wallet
   * @param {string} config.phrase seed phrase for a wallet
   * @param {Store} config.store an instance of a store
@@ -59,12 +58,11 @@ async function activeWallet (config = {}) {
   }
 
   let store = config.store || _store
-  if(config.tmpStore) {
+  if (config.tmpStore) {
     store = newStore(config.tmpStore)
-
   }
   const km = new KeyManager({
-      seed
+    seed
   })
   await km.init()
   const btcPay = new BitcoinPay({
@@ -100,8 +98,8 @@ function promiseSteps (arr) {
   return pass
 }
 
-async function rmDataDir() {
- fs.rmSync(_datadir, {recursive: true, force: true})
+async function rmDataDir () {
+  fs.rmSync(_datadir, { recursive: true, force: true })
 }
 
 module.exports = {

@@ -343,22 +343,22 @@ class SyncManager extends EventEmitter {
       if (!bal) {
         await _addr.newAddress(utxo.address)
         bal = await _addr.get(utxo.address)
-      } 
+      }
 
-      if(path && !addr) {
+      if (path && !addr) {
         const addrObj = this.keyManager.pathToScriptHash(path, 'p2wpkh')
-        if(addrObj.addr.address !== utxo.address) return
+        if (addrObj.addr.address !== utxo.address) return
         await hdWallet.addAddress(addrObj.addr)
         addr = await hdWallet.getAddress(addrObj.addr.address)
-      } else if(!addr) {
-        return 
+      } else if (!addr) {
+        return
       }
       // point is the txid:vout index. Unique id for utxo
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
       // set public keys for utxo, as they will be needed for signing tx
 
-      if(bal[inout].getTx(txState, point)) return
-      
+      if (bal[inout].getTx(txState, point)) return
+
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
 

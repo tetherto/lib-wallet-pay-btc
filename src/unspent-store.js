@@ -47,7 +47,6 @@ class VinVout {
   }
 }
 
-
 /**
  * @description class for tracking vin and vout, for spending btc
 */
