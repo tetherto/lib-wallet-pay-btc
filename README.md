@@ -224,4 +224,4 @@ console.log('Transaction sent!'); // Output: confirmation message when the trans
 - There is extensive integration tests for this package. 
 - We use Brittle for testing. Checkout package.json for various test commands.
 - Integration tests need a electrum server connected to a regtest bitcoin node.
-- To setup testing enviroment see: (Test tools repo)[https://github.com/rbndg/wallet-lib-test-tools/blob/main/src/bitcoin/README.md]
+- To setup testing enviroment see: [Test tools repo](https://github.com/rbndg/wallet-lib-test-tools/blob/main/src/bitcoin/README.md)
