@@ -161,10 +161,10 @@ console.log(newAddress); // Output: a newly generated Bitcoin address
 Example usage:
 ```javascript
 const wallet = new WalletPayBitcoin();
-const balance = await wallet.getBalance({ network: 'mainnet' });
+const balance = await wallet.getBalance();
 console.log(balance); // Output: the balance of the entire wallet
 
-const balanceForAddress = await wallet.getBalance({ address: '1A1zP1eP5QGefi2DMpt2iNm69rvkBJBF7s' });
+const balanceForAddress = await wallet.getBalance({ address: '<addr>' });
 console.log(balanceForAddress); // Output: the balance for a specific address
 ```
 
@@ -178,7 +178,7 @@ console.log(balanceForAddress); // Output: the balance for a specific address
 Example usage:
 ```javascript
 const wallet = new WalletPayBitcoin();
-await wallet.syncTransactions({ network: 'mainnet' });
+await wallet.syncTransactions();
 console.log('Syncing complete!'); // Output: confirmation message when syncing is done
 ```
 
@@ -199,19 +199,21 @@ console.log('Syncing paused!'); // Output: confirmation message when syncing is 
 * **Description**: Sends a transaction to a specified address.
 * **Return Value**: A Promise that resolves when the transaction is sent (or a rejection with an error message).
 * **Parameters**:
-        + `opts`: An object containing configuration options for the method. Required properties include:
-                - `fromAddress`
-                - `toAddress`
-                - `amount` in BTC
-        + `outgoing`: A boolean indicating whether this transaction is outgoing or not.
+        + `outgoing`: An object containing configuration options for the method. Required properties include:
+                - `address`
+                - `amount`
+                - `unit` `main` for btc and `base` for sats 
+                - `fee` in sats per byte: 
+        + `opts`: 
 
 Example usage:
 ```javascript
 const wallet = new WalletPayBitcoin();
 const txOpts = {
-  fromAddress: '1A1zP1eP5QGefi2DMpt2iNm69rvkBJBF7s',
-  toAddress: '18rTq9F4DnM7Z3C8xLZuKtjyWgJYXVpEa',
-  amount: 0.01,
+  address: '',
+  unit: 'sats',
+  amount: 10000,
+  fee: 10  
 };
 const tx = await wallet.sendTransaction(txOpts, true);
 console.log('Transaction sent!'); // Output: confirmation message when the transaction is sent
