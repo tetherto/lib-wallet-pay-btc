@@ -128,9 +128,99 @@ await btcPay.destroy()
 
 
 ```
+
+## Methods
+
+
+### Methods
+
+The following methods are available on this module:
+
+#### `getNewAddress()`
+
+* **Description**: Generates a new Bitcoin address.
+* **Return Value**: A Promise that resolves to the newly generated address.
+* **Parameters**:
+        + `opts` (optional): An object containing configuration options for the method. Currently, no specific properties are required.
+
+Example usage:
+```javascript
+const wallet = new WalletPayBitcoin();
+const newAddress = await wallet.getNewAddress();
+console.log(newAddress); // Output: a newly generated Bitcoin address
+```
+
+#### `getBalance(opts, addr)`
+
+* **Description**: Retrieves the balance of an address or the entire wallet.
+* **Return Value**: A Promise that resolves to the balance in BTC (or a rejection with an error message).
+* **Parameters**:
+        + `opts` (optional): An object containing configuration options for the method. Currently, no specific properties are required.
+        + `addr`: The address or a filter object to retrieve balances for multiple addresses.
+
+Example usage:
+```javascript
+const wallet = new WalletPayBitcoin();
+const balance = await wallet.getBalance({ network: 'mainnet' });
+console.log(balance); // Output: the balance of the entire wallet
+
+const balanceForAddress = await wallet.getBalance({ address: '1A1zP1eP5QGefi2DMpt2iNm69rvkBJBF7s' });
+console.log(balanceForAddress); // Output: the balance for a specific address
+```
+
+#### `syncTransactions(opts)`
+
+* **Description**: Syncs transactions with Electrum.
+* **Return Value**: A Promise that resolves when syncing is complete (or a rejection with an error message).
+* **Parameters**:
+        + `opts` (optional): An object containing configuration options for the method. Currently, no specific properties are required.
+
+Example usage:
+```javascript
+const wallet = new WalletPayBitcoin();
+await wallet.syncTransactions({ network: 'mainnet' });
+console.log('Syncing complete!'); // Output: confirmation message when syncing is done
+```
+
+#### `pauseSync()`
+
+* **Description**: Pauses syncing transactions from Electrum.
+* **Return Value**: A Promise that resolves immediately (or a rejection with an error message).
+
+Example usage:
+```javascript
+const wallet = new WalletPayBitcoin();
+wallet.pauseSync();
+console.log('Syncing paused!'); // Output: confirmation message when syncing is paused
+```
+
+#### `sendTransaction(opts, outgoing)`
+
+* **Description**: Sends a transaction to a specified address.
+* **Return Value**: A Promise that resolves when the transaction is sent (or a rejection with an error message).
+* **Parameters**:
+        + `opts`: An object containing configuration options for the method. Required properties include:
+                - `fromAddress`
+                - `toAddress`
+                - `amount` in BTC
+        + `outgoing`: A boolean indicating whether this transaction is outgoing or not.
+
+Example usage:
+```javascript
+const wallet = new WalletPayBitcoin();
+const txOpts = {
+  fromAddress: '1A1zP1eP5QGefi2DMpt2iNm69rvkBJBF7s',
+  toAddress: '18rTq9F4DnM7Z3C8xLZuKtjyWgJYXVpEa',
+  amount: 0.01,
+};
+const tx = await wallet.sendTransaction(txOpts, true);
+console.log('Transaction sent!'); // Output: confirmation message when the transaction is sent
+```
+
 ## Testing
 
 - There is extensive integration tests for this package. 
-
 - We use Brittle for testing. Checkout package.json for various test commands.
 - Integration tests need a electrum server connected to a regtest bitcoin node.
+
+1. Install Bitcoin and run Bitcoin Core running on regtest
