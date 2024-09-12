@@ -1,5 +1,5 @@
 const test = require('brittle')
-const { WalletStoreMemory } = require('../../wallet-store/')
+const { WalletStoreMemory } = require('lib-wallet-store')
 const { newElectrum } = require('./test-helpers.js')
 
 test('electrum', async function (t) {

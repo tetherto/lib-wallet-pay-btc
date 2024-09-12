@@ -4,7 +4,7 @@ Bitcoin payment method for the wallet library. Powered by Electrum.
 
 ## Features:
 - Support for P2WPKH/BIP84 HD path traversal.
-- internal UTXO managment, not reliant on electrum.
+- internal UTXO management not reliant on electrum.
 - internal balance calculation. not reliant on electrum.
 - Transaction broadcasting
 - Modular design. drop in Seed/storage/block source components
@@ -22,7 +22,7 @@ await storeEngine.init()
 const seed = await BIP39Seed.generate(/** Can enter mnemonic phrase here to **/)
 
 // Connect to an electrum server.
-// This class needs a storage engine for cacheing.
+// This class needs a storage engine for caching.
 // host and port are the electrum server details.
 // Additional options can be passed to the Electrum class with regards to caching.
 const provider = await Electrum({ store: storeEngine, host, port })
@@ -35,7 +35,7 @@ const btcPay = new BitcoinPay({
   asset_name: 'btc',
   // Electrum provider.
   provider,
-  // Key manager: Handlles address generation library from seed.
+  // Key manager: handle address generation library from seed.
   key_manager: new KeyManager({
     seed
   }),
@@ -66,7 +66,7 @@ const pay = btcPay.syncTransactions({
 })
 
 pay.broadcasted((tx)=>{
-  // transaction is broadcasted but not updated insternal state
+  // transaction is broadcasted but not updated internal state
 })
 
 const tx = await pay
@@ -90,7 +90,7 @@ const { address } = await btcPay.getNewAddress()
 // If you don't pass an address, it will return total balance of all addresses in your wallet.
 const addrBalance = await btcPay.getBalance({}, address)
 
-// Get total balance accress all addresses
+// Get total balance across all addresses
 const walletBalance = await btcPay.getBalance({})
 
 // Send bitcoin to an address

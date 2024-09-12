@@ -32,7 +32,7 @@ class Transaction extends EventEmitter {
   }
 
   async _generateRawTx (utxoSet, fee, sendAmount, address, changeAddr, weight = 1) {
-    if (+sendAmount.toBaseUnit() <= DUST_LIMIT) throw new Error('send amount must be bigger than dusi limit ' + DUST_LIMIT + ' got: ' + sendAmount.toBaseUnit())
+    if (+sendAmount.toBaseUnit() <= DUST_LIMIT) throw new Error('send amount must be bigger than dust limit ' + DUST_LIMIT + ' got: ' + sendAmount.toBaseUnit())
     const { keyManager, network } = this
     const { utxo, total } = utxoSet
     const psbt = new bitcoin.Psbt({ network: bitcoin.networks[network] })
@@ -70,7 +70,6 @@ class Transaction extends EventEmitter {
       return await this._generateRawTx(newUtxoSet, fee, sendAmount, address, changeAddr, weight)
     }
 
-    console.log(sendAmount, change)
     psbt.addOutput({
       address,
       value: +sendAmount.toBaseUnit()

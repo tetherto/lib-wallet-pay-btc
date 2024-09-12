@@ -201,11 +201,11 @@ class AddressManager {
   }
 
   /**
-  * @desc et transaction history from history store
+  * @desc get transaction history from history store
   * @param {function} fn callback function to process each transaction
   * @returns {Promise}
   */
-  getTransactions (fn) {
+  async getTransactions (fn) {
     return this.history.entries(async (key, value) => {
       if (key.indexOf('i:') !== 0 || !value) return
       return await fn(value)
