@@ -2,13 +2,15 @@
 
 Bitcoin payment method for the wallet library. Powered by Electrum.
 
+## Wallet SDK
+This library is part of the (Wallet SDK)[https://github.com/tetherto/lib-wallet]
+
 ## Features:
 - Support for P2WPKH/BIP84 HD path traversal.
 - internal UTXO management not reliant on electrum.
 - internal balance calculation. not reliant on electrum.
 - Transaction broadcasting
 - Modular design. drop in Seed/storage/block source components
-
 
 ## Usage
 
@@ -252,9 +254,20 @@ Notes:
 - The method uses the `entries` method of the underlying store, which may have performance implications for large transaction histories.
 
 
+## Development
+
+1. [Setup local bitcoin enviroment](https://github.com/tetherto/wallet-lib-test-tools/blob/main/src/bitcoin/README.md)
+2. clone repo
+3. start hacking!
+
 ## Testing
 
 - There is extensive integration tests for this package. 
 - We use Brittle for testing. Checkout package.json for various test commands.
 - Integration tests need a electrum server connected to a regtest bitcoin node.
 - To setup testing enviroment see: [Test tools repo](https://github.com/tetherto/wallet-lib-test-tools/blob/main/src/bitcoin/README.md)
+
+to run tests, take a look at `package.json` for the various test scripts.
+```
+npm run test:*
+```

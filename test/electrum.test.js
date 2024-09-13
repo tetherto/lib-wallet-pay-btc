@@ -16,7 +16,7 @@ test('electrum', async function (t) {
 
   t.test('electrum methods', async function (t) {
     const e = await newElectrum({
-      store: new WalletStoreMemory()
+      store: new WalletStoreMemory({})
     })
     const res = await e.ping()
     t.ok(res === 'pong', 'ping')
