@@ -6,10 +6,11 @@ const Electrum = require('../src/electrum.js')
 const { bitcoin } = require('../../wallet-test-tools/')
 const BitcoinCurr = require('../src/currency')
 const fs = require('fs')
+const testconf = require('./test-conf.json')
 
 async function newElectrum (config = {}) {
-  config.host = 'localhost' || config.host
-  config.port = '8001' || config.port
+  config.host = testconf.electrum_host || 'localhost' || config.host
+  config.port = testconf.electrum_port || '8001' || config.port
   config.store = config.store || newStore()
   let e
   try {

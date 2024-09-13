@@ -1,0 +1,4 @@
+{
+  "electrum_port" : 8001,
+  "electrum_host" : 8001,
+}
