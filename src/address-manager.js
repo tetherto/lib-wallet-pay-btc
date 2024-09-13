@@ -67,7 +67,7 @@ class AddressManager {
   constructor (config) {
     // @desc: address store that keeps track of balances
     this.store = config.store.newInstance({ name: 'addr' })
-    // @desc: transaction history store that holds tx details from eletrum
+    // @desc: transaction history store that holds tx details from electrum
     this.history = config.store.newInstance({ name: 'tx-history' })
     // @desc: Transactions that has been broadcasted
     this.outgoings = config.store.newInstance({ name: 'broadcasted' })

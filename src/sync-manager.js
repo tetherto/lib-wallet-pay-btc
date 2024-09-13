@@ -198,18 +198,7 @@ class SyncManager extends EventEmitter {
       return await this.provider.getTransaction(tx.txid, { cache: false })
     }))
 
-    const processTx = async (inout, tx) => {
-      await Promise.all(tx[inout].map(async (utxo) => {
-        // We get the address object from hdWallet, as it will be needed for signing tx
-        return this._processHistory([tx])
-      }))
-    }
-
-    await Promise.all(newTx.map(async (tx) => {
-      await processTx('in', tx)
-      await processTx('out', tx)
-    }))
-
+    await this._processHistory(newTx)
     await this._unspent.process()
 
     if (arr.length > 0) {
@@ -220,8 +209,8 @@ class SyncManager extends EventEmitter {
   /**
   * @desc Store transaction history and process VIN and VOUTS.
   * This functions is called when there is a new block, syncing entire wallet, new script hash change is detected
-  * @param {Object} addr address object
   * @param {Array} txHistory transaction history
+  * @param {String} path hd path string
   * @return {Promise}
   * */
   async _processHistory (txHistory, path) {

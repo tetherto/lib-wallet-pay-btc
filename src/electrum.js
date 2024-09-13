@@ -28,7 +28,7 @@ class RequestCache {
   }
 
   _startCacheTimer () {
-    this._timer = setInterval(async () => {
+    this._timer = setInterval(() => {
       this.store.entries(async (k, [value, exp]) => {
         if (Date.now() >= exp) return await this.store.delete(k)
       })
@@ -126,7 +126,7 @@ class Electrum extends EventEmitter {
           this._handleResponse(data)
         })
       })
-      this._client.once('close', async () => {
+      this._client.once('close', () => {
         this.clientState = 0
         this._reconn(resolve, reject, _err)
       })
@@ -195,13 +195,17 @@ class Electrum extends EventEmitter {
     const _resp = this.requests.get(resp.id)
     const [resolve, reject, method] = _resp || []
 
+    if (resp.error) {
+      if(reject) {
+        reject(new Error(`RPC Error: ${JSON.stringify(resp.error)} - ${method}`))
+      }
+      return this.requests.delete(resp.id)
+    }
+
     if (!resolve) return this.emit('request-error', `no handler for response id: ${resp.id} - ${JSON.stringify(resp)}`)
 
     const isNull = resp.result === null
-    if (resp.error) {
-      reject(new Error(`RPC Error: ${JSON.stringify(resp.error)} - ${method}`))
-      return this.requests.delete(resp.id)
-    }
+
     resolve(isNull ? null : (resp.result || resp.error))
     this.requests.delete(resp.id)
   }

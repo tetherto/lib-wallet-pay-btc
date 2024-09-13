@@ -17,13 +17,20 @@ const paths = [
   ["m/84'/0'/0'/0/9", 'bc1q3krt6p057aqr46wxe4d25jfmzl03rpx92zrkqf', '028b56e7dfacf19b5646fca4f28b75533a4b81516d64168a246fc5307f203b5618', 	'Kwz3WAh8qnQ6iDe9R2BRsFJe1joHmS7khswfnEAF7oijSmyiE3qE', 'd23b318652493747550bca0c023555dc24fef26f8b7cf3821139ce8877a39143']
 ]
 
+let mockSeed
+async function getSeed() {
+  mockSeed = { seed :  await Bip39Seed.generate() }
+}
+getSeed()
+
 test('Create Bitcoin key instance', async (t) => {
   const seed = await Bip39Seed.generate()
   const k = new Key({
     seed
   })
-  t.ok(k.seed.mnemonic === seed.mnemonic, 'mnemonic matches')
-  t.ok(k.ready, 'is ready')
+  await k.init()
+  const ks = k._config.seed
+  t.ok(ks.mnemonic === seed.mnemonic, 'mnemonic matches')
 })
 
 test('script hash and path generation  for BIP84 p2wpkh', async (t) => {
@@ -31,11 +38,30 @@ test('script hash and path generation  for BIP84 p2wpkh', async (t) => {
   const k = new Key({
     seed
   })
+  await k.init()
   paths.forEach(([path, addr, pk, wif, hash]) => {
+    t.comment('checking '+ path)
     const res = k.pathToScriptHash(path, 'p2wpkh')
     t.ok(res.addr.address === addr, 'Address matches ' + path)
     t.ok(res.addr.publicKey === pk, 'pub key matches ' + path)
     t.ok(res.addr.WIF === wif, 'wif  matches ' + path)
     t.ok(res.hash === hash, 'script hash matches ' + path)
+    const addrPath = k.addrFromPath(path, 'p2wpkh')
+    t.ok(addrPath.address === addr, 'addrFromPath.address matches')
+    t.ok(addrPath.WIF === wif, 'addrFromPath.WIF matches')
+    t.ok(addrPath.path === path, 'addrFromPath.path matches')
   })
 })
+
+test('WalletKeyBitcoin - setSeed', (t) => {
+  const walletKey = new Key()
+
+  walletKey.setNetwork('mainnet')
+  walletKey.setSeed(mockSeed.seed)
+
+  t.is(walletKey.seed, mockSeed.seed)
+  t.is(walletKey.ready, true)
+})
+
+
+
