@@ -246,6 +246,59 @@ Notes:
 - Transactions are grouped by block height in the history store.
 - The method uses the `entries` method of the underlying store, which may have performance implications for large transaction histories.
 
+## 🔔 Events
+
+The `BitcoinPay` instance emits the following events:
+
+### 1. 🟢 `'ready'`
+
+* **Description**: Emitted when the wallet is fully initialized and ready for use.
+* **Callback Parameters**: None
+
+Example usage:
+```javascript
+btcPay.on('ready', () => {
+  console.log('Bitcoin wallet is ready for use');
+});
+```
+
+### 2. 🔄 `'synced-path'`
+
+* **Description**: Emitted for each HD path that has been synced during the transaction synchronization process.
+* **Callback Parameters**: 
+  - `pathType` (String): Type of the path (e.g., 'external', 'internal')
+  - `path` (String): The HD path that was synced
+  - `hasTx` (Boolean): Whether the path has any transactions
+  - `progress` (Object): Sync progress information
+
+Example usage:
+```javascript
+btcPay.on('synced-path', (pathType, path, hasTx, progress) => {
+  console.log(`Synced path: ${pathType} ${path}, Has transactions: ${hasTx}`);
+  console.log('Sync progress:', progress);
+});
+```
+
+### 3. 💸 `'new-tx'`
+
+* **Description**: Emitted when a new transaction is detected for the wallet.
+* **Callback Parameters**: 
+  - `transaction` (Object): The new transaction object
+
+Example usage:
+```javascript
+btcPay.on('new-tx', (transaction) => {
+  console.log('New transaction detected:', transaction);
+});
+```
+
+## 🛠️ Development
+
+// ... [Previous development section remains unchanged]
+
+### 🧪 Testing
+
+// ... [Previous testing section remains unchanged]
 
 ## 🛠️ Development
 
