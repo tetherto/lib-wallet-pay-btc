@@ -4,6 +4,8 @@ Bitcoin payment method for the wallet library. Powered by Electrum. ⚡
 
 ## 💼 Wallet SDK
 This library is part of the [Wallet SDK](https://github.com/tetherto/lib-wallet)
+See the module in action [here](https://github.com/tetherto/lib-wallet/tree/main/example)
+
 
 ## ✨ Features:
 - 🔑 Support for P2WPKH/BIP84 HD path traversal.
