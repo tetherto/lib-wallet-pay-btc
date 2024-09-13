@@ -1,109 +1,35 @@
+'use strict'
 const { WalletPay, HdWallet } = require('lib-wallet')
-const { EventEmitter } = require('events')
 const Transaction = require('./transaction.js')
 const SyncManager = require('./sync-manager.js')
 const Bitcoin = require('./currency')
+const process = require('process')
+const {
+  BlockCounter,
+  StateDb
+} = require('./utils.js')
 
 const WalletPayError = Error
 
-class StateDb {
-  constructor (config) {
-    this.store = config.store
-  }
 
-  async init () {
-    await this.store.init()
-  }
-
-  async updateReceiveBalance (balance) {
-    return this.store.put('receive_balance', balance)
-  }
-
-  async addWatchedScriptHashes (list, addrType) {
-    return this.store.put('watched_script_hashes_' + addrType, list)
-  }
-
-  async getWatchedScriptHashes (addrType) {
-    return await (this.store.get('watched_script_hashes_' + addrType)) || []
-  }
-
-  async setTotalBalance (balance) {
-    return this.store.put('total_balance', balance)
-  }
-
-  async getTotalBalance () {
-    return this.store.get('total_balance')
-  }
-
-  async getLatestBlock () {
-    return await (this.store.get('latest_block')) || 0
-  }
-
-  async setLatestBlock (block) {
-    return this.store.put('latest_block', block)
-  }
-}
-
-/**
-* @desc BlockCounter: Used to track block height within wallet.
-* @param {Object} config - Config
-* @param {Object} config.state - state instance for storing block height
-* @emits {Object} new-block - new block
-* @emits {Object} block - block
-* @emits {Object} diff - diff
-* @emits {Object} last - last block
-* */
-class BlockCounter extends EventEmitter {
-  constructor (config) {
-    super()
-    this.state = config.state
-  }
-
-  async init () {
-    this.block = await this.state.getLatestBlock()
-  }
-
-  async setBlock (newBlock) {
-    const { height } = newBlock
-
-    const diff = height - this.block
-    const last = this.block
-    if (diff < 0) {
-      // Block reorg?
-      console.log('block reorg detected')
-      return
-    }
-
-    this.block = height
-    await this._emitBlock({
-      current: height,
-      diff,
-      last
-    })
-    this.state.setLatestBlock(this.block)
-    return true
-  }
-
-  async _emitBlock (block) {
-    this.emit('new-block', block)
-  }
-}
 
 class WalletPayBitcoin extends WalletPay {
   static networks = ['regtest', 'mainnet', 'testnet', 'signet', 'bitcoin']
   static events = ['ready', 'synced-path', 'new-tx']
 
+
   /**
-  * @desc WalletPayBitcoin
-  * @param {Object} config - Config
-  * @param {Object} [config.provider=Electrum]- block data provider
-  * @param {Object} config.store - store instance
-  * @param {Object} [config.key_manager=WalletKeyBtc] - key manager instance.
-  * @param {Seed} [config.seed] - seed for key manager.
-  * @param {String} config.network - blockchain network
-  * @param {Number} [config.gapLimit=20] - gap limit. How far to look ahead when scanning for balances
-  * @param {Number} [config.min_block_confirm=1] - minimum number of block confirmations
-  **/
+  * Creates a new WalletPayBitcoin instance.
+  * @param {Object} config - Configuration object.
+  * @param {Object} [config.provider=Electrum] - Block data provider.
+  * @param {Object} config.store - Store instance.
+  * @param {Object} [config.key_manager=WalletKeyBtc] - Key manager instance.
+  * @param {Seed} [config.seed] - Seed for key manager.
+  * @param {string} config.network - Blockchain network.
+  * @param {number} [config.gapLimit=20] - Gap limit for scanning balances.
+  * @param {number} [config.min_block_confirm=1] - Minimum number of block confirmations.
+  * @throws {WalletPayError} If an invalid network is provided.
+  */
   constructor (config) {
     super(config)
     if (!WalletPayBitcoin.networks.includes(this.network)) throw new WalletPayError('Invalid network')
@@ -119,15 +45,17 @@ class WalletPayBitcoin extends WalletPay {
   }
 
   /**
-   * @description This function is called when the instance is shutting down
+   * Destroys the instance, closing connections and pausing sync.
+   * @async
    */
   async _destroy () {
     await this.provider.close()
-    await this.pauseSync()
     await this._syncManager.close()
+    await this.pauseSync()
     await this.state.store.close()
     await this._hdWallet.close()
     await this.keyManager.close()
+    this.ready = false
   }
 
   /**
@@ -155,18 +83,21 @@ class WalletPayBitcoin extends WalletPay {
       this.provider = new (require('./electrum.js'))(this._electrum_config)
     }
 
+    if (!this.provider.isConnected()) {
+      await this.provider.connect()
+    }
+
     this._hdWallet = new HdWallet({
       store: this.store.newInstance({ name: 'hdwallet' }),
       coinType: "0'",
       purpose: "84'",
       gapLimit: this.gapLimit
     })
+
     this.state = new StateDb({
       store: this.store.newInstance({ name: 'state' })
     })
-    if (!this.provider.isConnected()) {
-      await this.provider.connect()
-    }
+
 
     this._syncManager = new SyncManager({
       state: this.state,

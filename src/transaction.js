@@ -1,3 +1,4 @@
+'use strict'
 const bitcoin = require('bitcoinjs-lib')
 const { EventEmitter } = require('events')
 const Bitcoin = require('./currency.js')

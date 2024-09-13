@@ -1,3 +1,4 @@
+'use strict'
 class MempoolSpace {
   constructor (config) {
     this.hostname = config.hostname || 'mempool.space'

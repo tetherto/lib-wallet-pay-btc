@@ -1,3 +1,4 @@
+'use strict'
 const { EventEmitter } = require('events')
 /**
  * Manages watching addresses for new transactions and changes.
@@ -33,9 +34,13 @@ class AddressWatch extends EventEmitter {
       this.emit('new-tx', changeHash)
     })
 
-    await Promise.all(scriptHashes.map(async ([scripthash]) => {
-      return provider.subscribeToAddress(scripthash)
-    }))
+    try {
+      await Promise.all(scriptHashes.map(async ([scripthash]) => {
+        return provider.subscribeToAddress(scripthash)
+      }))
+    } catch(err) {
+      console.log('failed to watch address', err)
+    }
   }
 
   /**
@@ -50,7 +55,15 @@ class AddressWatch extends EventEmitter {
     if (hashList.length >= maxScriptWatch) {
       hashList.shift()
     }
-    const balHash = await provider.subscribeToAddress(scriptHash)
+
+    let balHash
+    try {
+      balHash = await provider.subscribeToAddress(scriptHash)
+    } catch (err) {
+      console.log('failed to subscribe to addr', err)
+      return
+    }
+
     if (balHash?.message) {
       throw new Error('Failed to subscribe to address ' + balHash.message)
     }
@@ -66,6 +79,15 @@ class AddressWatch extends EventEmitter {
     const inlist = await this.state.getWatchedScriptHashes('in')
     const extlist = await this.state.getWatchedScriptHashes('ext')
     return { inlist, extlist }
+  }
+
+  /**
+  * @desc stop watching addresses
+  **/
+  async stopWatching(list) {
+    return Promise.all(list.map((scripthash) => {
+      return this.provider.unsubscribeFromAddress(scripthash)
+    }))
   }
 }
 

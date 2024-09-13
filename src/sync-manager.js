@@ -43,7 +43,12 @@ class SyncManager extends EventEmitter {
     })
     this._addrWatch.on('new-tx', async (changeHash) => {
       if (this._halt) return
-      await this._updateScriptHashBalance(changeHash)
+      try {
+        await this._updateScriptHashBalance(changeHash)
+      } catch(err) {
+        console.log('failed to update addr balance', err)
+        return 
+      }
       this.emit('new-tx')
     })
 
@@ -75,6 +80,7 @@ class SyncManager extends EventEmitter {
   }
 
   async close () {
+    this.stopSync()
     this._addr && await this._addr.close()
     this._unspent && await this._unspent.close()
   }
@@ -102,9 +108,9 @@ class SyncManager extends EventEmitter {
     await process(extlist)
     await process(inlist)
 
-    await Promise.all(inlist.map((scripthash) => {
-      return provider.unsubscribeFromAddress(scripthash)
-    }))
+    await _addrWatch.stopWatching(inlist)
+
+    // update unspent store
     await this._unspent.process()
   }
 
@@ -171,9 +177,15 @@ class SyncManager extends EventEmitter {
 
     if (arr.length === 0) return
 
-    const newTx = await Promise.all(arr.map(async (tx) => {
-      return await this.provider.getTransaction(tx.txid, { cache: false })
-    }))
+    let newTx
+    try {
+      newTx = await Promise.all(arr.map(async (tx) => {
+        return await this.provider.getTransaction(tx.txid, { cache: false })
+      }))
+    } catch(err) {
+      console.log('failed to get tx ', err)
+      return 
+    }
 
     await this._processHistory(newTx)
     await this._unspent.process()

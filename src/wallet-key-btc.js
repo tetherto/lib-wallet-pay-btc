@@ -1,3 +1,4 @@
+'use strict'
 let bip32
 const bitcoin = require('bitcoinjs-lib')
 

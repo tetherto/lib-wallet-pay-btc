@@ -1,3 +1,4 @@
+'use strict'
 const { Balance } = require('./address-manager.js')
 /**
  * Manages the total balance for the wallet.

@@ -179,7 +179,7 @@ test('getTransactions', async (t) => {
 });
 
 (async () => {
-  solo('balance check', async (tst) => {
+  test('balance check', async (tst) => {
     const t = tst.test('create address, send btc and check balance')
     const regtest = await regtestNode()
     t.comment('create new wallet')

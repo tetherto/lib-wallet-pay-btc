@@ -1,3 +1,4 @@
+'use strict'
 const Bitcoin = require('./currency')
 
 class Balance {

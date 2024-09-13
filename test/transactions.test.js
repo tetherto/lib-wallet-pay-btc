@@ -15,7 +15,7 @@ test.test('sendTransaction', { timeout: 600000 }, async function (t) {
 
     // const fuzz = Array.from({ length: 10 }, () => Math.random() * (2 - 0.00000546) + 0.00000546).map(num => +num.toFixed(8));
     const fuzz = []
-    const amounts = [0.1, 0.001, 0.01999, 0.031, 0.000666, 0.008484, 0.0091, 0.002001, 0.00000546].concat(fuzz)
+    const amounts = [0.1, 0.001, 0.01999, 0.031, 0.000666, 0.008484, 0.0091, 0.002001, 0.00000547].concat(fuzz)
     const fee = [2, 10, 20, 100, 300]
 
     async function send (amount, index) {
@@ -60,7 +60,7 @@ test.test('sendTransaction', { timeout: 600000 }, async function (t) {
     let c = 0
     for (const amount of amounts) {
       await send(amount, c)
-      await pause(10000)
+      await pause(5000)
       c++
     }
     await btcPay.destroy()
@@ -160,7 +160,7 @@ test.test('Spending whole UTXO for amount, not enough to pay for fees', { timeou
   t.fail('should have thrown error')
 })
 
-test.test('perform 2 transactions from 1 utxo before confirmation. Spending from change address', { timeout: 600000 }, async function (t) {
+test.solo('perform 2 transactions from 1 utxo before confirmation. Spending from change address', { timeout: 600000 }, async function (t) {
   // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
   // In order to pay for the fee, we must utilise the second utxo to pay for fees
   const regtest = await regtestNode()

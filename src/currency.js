@@ -1,3 +1,4 @@
+'use strict'
 const { Currency } = require('lib-wallet')
 
 const BN = Currency._BN

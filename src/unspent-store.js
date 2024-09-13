@@ -1,3 +1,4 @@
+'use strict'
 const Bitcoin = require('./currency')
 
 /**
@@ -104,6 +105,7 @@ class UnspentStore {
     this.ready = true
   }
 
+  /** desc: lock a ouput **/
   async lock (id) {
     const exists = await this.vout.some((utxo) => utxo.txid === id)
     if (this.locked.includes(id) || !exists) return false
@@ -140,6 +142,7 @@ class UnspentStore {
 
   /**
   * @description collect unspent outputs for performing a tx
+  * TODO: ADD UTXO selection args here
   */
   async _smallToLarge (amount) {
     let total = new Bitcoin(0, amount.type)
