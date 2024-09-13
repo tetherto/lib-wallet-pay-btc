@@ -3,7 +3,6 @@ const { WalletPay, HdWallet } = require('lib-wallet')
 const Transaction = require('./transaction.js')
 const SyncManager = require('./sync-manager.js')
 const Bitcoin = require('./currency')
-const process = require('process')
 const {
   BlockCounter,
   StateDb
