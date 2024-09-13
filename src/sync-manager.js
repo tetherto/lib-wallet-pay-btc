@@ -2,7 +2,9 @@
 const { EventEmitter } = require('events')
 const Bitcoin = require('./currency')
 const UnspentStore = require('./unspent-store.js')
-const { AddressManager, Balance } = require('./address-manager.js')
+const { AddressManager } = require('./address-manager.js')
+const AddressWatch = require('./address-watch.js')
+const TotalBalance = require('./total-balance.js')
 
 /**
  * Class that manages syncing local state with electrum/blockchain.
@@ -25,7 +27,6 @@ class SyncManager extends EventEmitter {
     this.currentBlock = config.currentBlock
     this.minBlockConfirm = config.minBlockConfirm
     this.store = config.store
-    this.maxScriptWatch = config.maxScriptWatch || 10
     this._addressType = config.addressType
 
     // @desc: halt syncing
@@ -33,16 +34,24 @@ class SyncManager extends EventEmitter {
     // @desc: syncing flag
     this._isSyncing = false
 
-    // @desc: max number of script hashes to watch
-    this._max_script_watch = config.max_script_watch || 10
-
     this._tx_events = []
+
+    // @desc: Manage watching address changes from electrum
+    this._addrWatch = new AddressWatch({
+      state: this.state,
+      provider: this.provider
+    })
+    this._addrWatch.on('new-tx', async (changeHash) => {
+      if (this._halt) return
+      await this._updateScriptHashBalance(changeHash)
+      this.emit('new-tx')
+    })
+
     this.reset()
   }
 
   async init () {
-    await this._subscribeToScriptHashes()
-    this._total = await this._getTotalBal()
+    this._addrWatch.startWatching()
 
     // @desc: Address manager manages sync states per address
     this._addr = new AddressManager({ store: this.store })
@@ -50,16 +59,17 @@ class SyncManager extends EventEmitter {
     // @desc: Unspent store manages state VIN/VOUT for spending btc
     this._unspent = new UnspentStore({ store: this.store })
     await this._unspent.init()
+    // @desc: manage total balance of wallet
+    this._totalBal = new TotalBalance({
+      state: this.state
+    })
+    await this._totalBal.init()
   }
 
   async reset () {
-    const total = {
-      in: new Balance(0, 0, 0),
-      out: new Balance(0, 0, 0),
-      fee: new Balance(0, 0, 0)
+    if (this._totalBal) {
+      await this._totalBal.resetBalance()
     }
-    await this.state.setTotalBalance(total)
-    this._total = total
     await this.resumeSync()
     await this.hdWallet.resetSyncState()
   }
@@ -77,37 +87,9 @@ class SyncManager extends EventEmitter {
     return this._addr.getSentTx(txid)
   }
 
-  async _getTotalBal () {
-    const total = await this.state.getTotalBalance()
-    if (!total) {
-      return this._total
-    }
-    return {
-      in: new Balance(total.in.confirmed, total.in.pending, total.in.mempool),
-      out: new Balance(total.out.confirmed, total.out.pending, total.out.mempool),
-      fee: new Balance(total.fee.confirmed, total.fee.pending, total.fee.mempool)
-    }
-  }
-
-  async _subscribeToScriptHashes () {
-    const { state, provider } = this
-    const scriptHashes = (await state.getWatchedScriptHashes('in')).concat(
-      await state.getWatchedScriptHashes('ext')
-    )
-    provider.on('new-tx', async (changeHash) => {
-      if (this._halt) return
-      await this._updateScriptHashBalance(changeHash)
-      this.emit('new-tx')
-    })
-    await Promise.all(scriptHashes.map(async ([scripthash]) => {
-      return provider.subscribeToAddress(scripthash)
-    }))
-  }
-
   async _updateScriptHashBalance (changeHash) {
-    const { provider, state } = this
-    const inlist = await state.getWatchedScriptHashes('in')
-    const extlist = await state.getWatchedScriptHashes('ext')
+    const { provider, _addrWatch } = this
+    const { extlist, inlist } = await _addrWatch.getWatchedAddress()
 
     const process = async (data) => {
       await Promise.all(data.map(async ([scripthash, balHash]) => {
@@ -130,20 +112,15 @@ class SyncManager extends EventEmitter {
   * @description watch address for changes and save to store for when lib is resumed
   **/
   async watchAddress ([scriptHash, addr], addrType) {
-    const { state, _max_script_watch: maxScriptWatch, provider, _addr } = this
-    await _addr.newAddress(addr.address)
-    const hashList = await state.getWatchedScriptHashes(addrType)
-    if (hashList.length >= maxScriptWatch) {
-      hashList.shift()
-    }
-    const balHash = await provider.subscribeToAddress(scriptHash)
-    if (balHash?.message) {
-      throw new Error('Failed to subscribe to address ' + balHash.message)
-    }
-    hashList.push([scriptHash, balHash])
-    await state.addWatchedScriptHashes(hashList, addrType)
+    // @desc: create address balance object
+    await this._addr.newAddress(addr.address)
+    // @desc: start watching address balance changes
+    await this._addrWatch.watchAddress(scriptHash, addrType)
   }
 
+  /**
+   * @description utxo that is locked for spending
+  */
   async unlockUtxo (state) {
     return this._unspent.unlock(state)
   }
@@ -295,16 +272,30 @@ class SyncManager extends EventEmitter {
   * @return {Promise}
   **/
   async getBalance (addr) {
-    let total
     if (!addr) {
-      total = this._total
-    } else {
-      total = await this._addr.get(addr)
-      if (!total) throw new Error('Address not valid or not processed for balance ' + addr)
+      return this._totalBal.getSpendableBalance()
     }
+    const total = await this._addr.get(addr)
+    if (!total) throw new Error('Address not valid or not processed for balance ' + addr)
     return total.out.combine(total.in)
   }
 
+  /**
+   * Determines the state of a transaction based on its height and the current block.
+   *
+   * @private
+   * @param {Object} tx - The transaction object.
+   * @param {number} tx.height - The block height of the transaction. A height of 0 indicates it's in the mempool.
+   * @returns {string} The state of the transaction: 'mempool', 'confirmed', or 'pending'.
+   *
+   * @description
+   * This method categorizes a transaction into one of three states:
+   * - 'mempool': The transaction is not yet included in a block (height is 0).
+   * - 'confirmed': The transaction is included in a block and has the required number of confirmations.
+   * - 'pending': The transaction is included in a block but doesn't yet have the required number of confirmations.
+   *
+   * The number of required confirmations is determined by the `minBlockConfirm` property of the class.
+   */
   _getTxState (tx) {
     if (tx.height === 0) return 'mempool'
     const diff = this.currentBlock.current - tx.height
@@ -313,58 +304,71 @@ class SyncManager extends EventEmitter {
   }
 
   /**
-  * @description process tx history and update balances and utxo store
-  * @param {Array} utxoList list of utxos
-  * @param {String} inout in or out
-  * @param {String} txState mempool, confirmed, pending
-  * @param {Number} txFee fee for tx
-  * @param {Object} addr address object
-  * @param {String} path options hd path of utxo list
-  * @return {Promise}
-  * */
+   * @desc Processes a list of UTXOs, updating balances and the UTXO store. For each UTXO:
+   * 1. Retrieves or creates balance for the UTXO's address
+   * 2. Gets or derives address info from HD wallet
+   * 3. Generates a unique identifier for the UTXO, called POINT
+   * 4. Updates UTXO with address public key and path, we need this to spend later
+   * 5. Updates address balance and total balance of the wallet
+   * 6. Adds transaction fee to balance if applicable.
+   * 7. Saves updated balance
+   * 8. Adds UTXO to unspent store for future transaction signings
+   * Skips processing if UTXO has already been processed for the given state
+   * @private
+   * @param {Array<Object>} utxoList - UTXOs to process
+   * @param {'in'|'out'} inout - Transaction direction
+   * @param {'mempool'|'confirmed'|'pending'} txState - Transaction state
+   * @param {number} [txFee=0] - Transaction fee
+   * @param {string} [path] - HD wallet path
+   * @returns {Promise<void[]>} Promise resolving when all UTXOs are processed
+   */
   async _processUtxo (utxoList, inout, txState, txFee = 0, path) {
-    const { _addr, _total, hdWallet } = this
-
+    const { _addr, keyManager, hdWallet, _totalBal, _unspent } = this
     return Promise.all(utxoList.map(async (utxo) => {
+      /** @type {Object} UTXO address balance */
       let bal = await _addr.get(utxo.address)
+      /** @type {Object} HD wallet address info */
       let addr = await hdWallet.getAddress(utxo.address)
 
       if (!bal) {
+      /** @desc Create new address if balance doesn't exist */
         await _addr.newAddress(utxo.address)
         bal = await _addr.get(utxo.address)
       }
 
       if (path && !addr) {
-        const addrObj = this.keyManager.pathToScriptHash(path, 'p2wpkh')
+      /** @desc Derive address from path if not in HD wallet */
+        const addrObj = keyManager.pathToScriptHash(path, 'p2wpkh')
         if (addrObj.addr.address !== utxo.address) return
         await hdWallet.addAddress(addrObj.addr)
         addr = await hdWallet.getAddress(addrObj.addr.address)
       } else if (!addr) {
         return
       }
-      // point is the txid:vout index. Unique id for utxo
-      const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
-      // set public keys for utxo, as they will be needed for signing tx
 
+      /** @type {string} Unique UTXO identifier */
+      const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
+
+      /** @desc Skip if already processed */
       if (bal[inout].getTx(txState, point)) return
 
+      /** @desc Set UTXO address info */
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
 
-      // update balance of each tx state. mempool, confirmed, pending
-      // add txid to txid list for each state
-      _total[inout].addTxid(txState, point, utxo.value)
+      /** @desc Update balances */
       bal[inout].addTxid(txState, point, utxo.value)
+      _totalBal.addTxId(inout, txState, utxo, point, txFee)
 
-      // update fee balances
       if (txFee > 0) {
-        _total.fee.addTxid(txState, point, txFee)
         bal.fee.addTxid(txState, point, txFee)
       }
+
+      /** @desc Save updated balance */
       _addr.set(utxo.address, bal)
-      // Add UTXO to unspent store for tx signings
-      await this._unspent.add(utxo, inout)
-      await this.state.setTotalBalance(_total)
+
+      /** @desc Add to unspent store for future signings */
+      await _unspent.add(utxo, inout)
     }))
   }
 

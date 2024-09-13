@@ -3,11 +3,11 @@ const Bitcoin = require('./currency')
 class Balance {
   constructor (confirmed, pending, mempool, txid) {
     // @desc: confirmed balance. Tx that have more than X amount of confirmations
-    this.confirmed = new Bitcoin(confirmed, 'main')
+    this.confirmed = new Bitcoin(confirmed || 0, 'main')
     // @desc: pending balance. Tx that have less than X amount of confirmations but more than 0
-    this.pending = new Bitcoin(pending, 'main')
+    this.pending = new Bitcoin(pending || 0, 'main')
     // @desc: mempool balance. Tx that are in the mempool, 0 confirmations
-    this.mempool = new Bitcoin(mempool, 'main')
+    this.mempool = new Bitcoin(mempool || 0, 'main')
 
     this.txid = txid || {
       confirmed: [],

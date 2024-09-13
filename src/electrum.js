@@ -196,7 +196,7 @@ class Electrum extends EventEmitter {
     const [resolve, reject, method] = _resp || []
 
     if (resp.error) {
-      if(reject) {
+      if (reject) {
         reject(new Error(`RPC Error: ${JSON.stringify(resp.error)} - ${method}`))
       }
       return this.requests.delete(resp.id)

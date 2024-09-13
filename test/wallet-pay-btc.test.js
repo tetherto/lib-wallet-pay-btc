@@ -12,6 +12,7 @@ const {
   rmDataDir,
   pause
 } = require('./test-helpers.js')
+const { countNonPushOnlyOPs } = require('bitcoinjs-lib/src/script.js')
 
 test.configure({ timeout: 60000 })
 
@@ -178,7 +179,7 @@ test('getTransactions', async (t) => {
 });
 
 (async () => {
-  test('balance check', async (tst) => {
+  solo('balance check', async (tst) => {
     const t = tst.test('create address, send btc and check balance')
     const regtest = await regtestNode()
     t.comment('create new wallet')
@@ -197,6 +198,7 @@ test('getTransactions', async (t) => {
           console.log(e)
           continue
         }
+
         const bal = balance[state].toMainUnit()
         t.ok(bal === amount.toString(), `address balance matches sent amount ${state} ${addr} - ${amount} - ${bal}`)
         if (state === 'pending') {
@@ -235,6 +237,9 @@ test('getTransactions', async (t) => {
     t.comment('mining block for confirmed tx')
     await regtest.mine(1)
     await pass.confirmed.promise
+
+    const  totalBalance = await btcPay.getBalance({})
+    t.ok(+totalBalance.consolidated.toMainUnit() === amount, 'total wallet balance matches')
     await btcPay.destroy()
     t.end()
   })
