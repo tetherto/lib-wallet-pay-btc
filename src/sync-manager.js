@@ -45,9 +45,9 @@ class SyncManager extends EventEmitter {
       if (this._halt) return
       try {
         await this._updateScriptHashBalance(changeHash)
-      } catch(err) {
+      } catch (err) {
         console.log('failed to update addr balance', err)
-        return 
+        return
       }
       this.emit('new-tx')
     })
@@ -182,9 +182,9 @@ class SyncManager extends EventEmitter {
       newTx = await Promise.all(arr.map(async (tx) => {
         return await this.provider.getTransaction(tx.txid, { cache: false })
       }))
-    } catch(err) {
+    } catch (err) {
       console.log('failed to get tx ', err)
-      return 
+      return
     }
 
     await this._processHistory(newTx)

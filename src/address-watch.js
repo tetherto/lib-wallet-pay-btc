@@ -38,7 +38,7 @@ class AddressWatch extends EventEmitter {
       await Promise.all(scriptHashes.map(async ([scripthash]) => {
         return provider.subscribeToAddress(scripthash)
       }))
-    } catch(err) {
+    } catch (err) {
       console.log('failed to watch address', err)
     }
   }
@@ -84,7 +84,7 @@ class AddressWatch extends EventEmitter {
   /**
   * @desc stop watching addresses
   **/
-  async stopWatching(list) {
+  async stopWatching (list) {
     return Promise.all(list.map((scripthash) => {
       return this.provider.unsubscribeFromAddress(scripthash)
     }))

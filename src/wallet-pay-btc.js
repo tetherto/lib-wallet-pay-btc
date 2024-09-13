@@ -10,12 +10,9 @@ const {
 
 const WalletPayError = Error
 
-
-
 class WalletPayBitcoin extends WalletPay {
   static networks = ['regtest', 'mainnet', 'testnet', 'signet', 'bitcoin']
   static events = ['ready', 'synced-path', 'new-tx']
-
 
   /**
   * Creates a new WalletPayBitcoin instance.
@@ -96,7 +93,6 @@ class WalletPayBitcoin extends WalletPay {
     this.state = new StateDb({
       store: this.store.newInstance({ name: 'state' })
     })
-
 
     this._syncManager = new SyncManager({
       state: this.state,
