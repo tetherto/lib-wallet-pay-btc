@@ -1,18 +1,18 @@
-# lib-wallet-pay-btc
+# 🏦 lib-wallet-pay-btc
 
-Bitcoin payment method for the wallet library. Powered by Electrum.
+Bitcoin payment method for the wallet library. Powered by Electrum. ⚡
 
-## Wallet SDK
+## 💼 Wallet SDK
 This library is part of the [Wallet SDK](https://github.com/tetherto/lib-wallet)
 
-## Features:
-- Support for P2WPKH/BIP84 HD path traversal.
-- internal UTXO management not reliant on electrum.
-- internal balance calculation. not reliant on electrum.
-- Transaction broadcasting
-- Modular design. drop in Seed/storage/block source components
+## ✨ Features:
+- 🔑 Support for P2WPKH/BIP84 HD path traversal.
+- 💰 Internal UTXO management not reliant on electrum.
+- 🧮 Internal balance calculation. not reliant on electrum.
+- 📡 Transaction broadcasting
+- 🧩 Modular design. drop in Seed/storage/block source components
 
-## Usage
+## 🚀 Usage
 
 ```javascript
 // Start with a storage engine
@@ -135,14 +135,14 @@ await btcPay.destroy()
 
 ```
 
-## Methods
+## 📚 Methods
 
 
-### Methods
+### 🛠️ Methods
 
 The following methods are available on this module:
 
-#### `getNewAddress()`
+#### 🏠 `getNewAddress()`
 
 * **Description**: Generates a new Bitcoin address.
 * **Return Value**: A Promise that resolves to the newly generated address.
@@ -156,7 +156,7 @@ const newAddress = await wallet.getNewAddress();
 console.log(newAddress); // Output: a newly generated Bitcoin address
 ```
 
-#### `getBalance(opts, addr)`
+#### 💰 `getBalance(opts, addr)`
 
 * **Description**: Retrieves the balance of an address or the entire wallet.
 * **Return Value**: A Promise that resolves to the balance in BTC (or a rejection with an error message).
@@ -174,7 +174,7 @@ const balanceForAddress = await wallet.getBalance({ address: '<addr>' });
 console.log(balanceForAddress); // Output: the balance for a specific address
 ```
 
-#### `syncTransactions(opts)`
+#### 🔄 `syncTransactions(opts)`
 
 * **Description**: Syncs transactions with Electrum.
 * **Return Value**: A Promise that resolves when syncing is complete (or a rejection with an error message).
@@ -188,7 +188,7 @@ await wallet.syncTransactions();
 console.log('Syncing complete!'); // Output: confirmation message when syncing is done
 ```
 
-#### `pauseSync()`
+#### ⏸️ `pauseSync()`
 
 * **Description**: Pauses syncing transactions from Electrum.
 * **Return Value**: A Promise that resolves immediately (or a rejection with an error message).
@@ -200,7 +200,7 @@ wallet.pauseSync();
 console.log('Syncing paused!'); // Output: confirmation message when syncing is paused
 ```
 
-#### `sendTransaction(opts, outgoing)`
+#### 📤 `sendTransaction(opts, outgoing)`
 
 * **Description**: Sends a transaction to a specified address.
 * **Return Value**: A Promise that resolves when the transaction is sent (or a rejection with an error message).
@@ -225,7 +225,7 @@ const tx = await wallet.sendTransaction({}, txOpts);
 console.log('Transaction sent!'); // Output: confirmation message when the transaction is sent
 ```
 
-#### `getTransactions(fn)`
+#### 📜 `getTransactions(fn)`
 * **Description**: Retrieves transaction history from the history store. This method iterates through all entries in the history store and processes transactions using the provided callback function.
 * **Return Value**: A Promise that resolves when all transactions have been processed (or a rejection with an error if an exception occurs).
 * **Parameters**:
@@ -247,14 +247,14 @@ Notes:
 - The method uses the `entries` method of the underlying store, which may have performance implications for large transaction histories.
 
 
-## Development
+## 🛠️ Development
 
 1. [Setup local bitcoin environment](https://github.com/tetherto/wallet-lib-test-tools/blob/main/src/bitcoin/README.md)
 2. clone repo
 3. `npm install`
 4. run various test: `npm run test:pay`
 
-### Testing
+### 🧪 Testing
 
 - There is extensive integration tests for this package. 
 - We use Brittle for testing. Checkout package.json for various test commands.

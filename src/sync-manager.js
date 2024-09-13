@@ -22,11 +22,6 @@ const TotalBalance = require('./total-balance.js')
 
 /**
  * Class that manages syncing local state with electrum/blockchain.
- *
- * * Watch for address updates for electrum and update utxo and balances per address
- *
- * * Manage total balance calc
- *
 **/
 class SyncManager extends EventEmitter {
   constructor (config) {
