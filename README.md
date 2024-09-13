@@ -221,7 +221,7 @@ const txOpts = {
   amount: 10000,
   fee: 10  
 };
-const tx = await wallet.sendTransaction(txOpts, true);
+const tx = await wallet.sendTransaction({}, txOpts);
 console.log('Transaction sent!'); // Output: confirmation message when the transaction is sent
 ```
 
@@ -229,19 +229,12 @@ console.log('Transaction sent!'); // Output: confirmation message when the trans
 * **Description**: Retrieves transaction history from the history store. This method iterates through all entries in the history store and processes transactions using the provided callback function.
 * **Return Value**: A Promise that resolves when all transactions have been processed (or a rejection with an error if an exception occurs).
 * **Parameters**:
-  + `fn` (Function): A callback function to process each set of transactions. This function is called for each block height entry in the history store.
+  + `fn` (Function): A callback function to process each set of transactions.
 
 Example usage:
 ```javascript
-const addressManager = new AddressManager(config);
-await addressManager.init();
+await wallet.getTransactions({}, async (txs) => {
 
-const transactions = [];
-
-await addressManager.getTransactions(async (txs) => {
-  for (const tx of txs) {
-    transactions.push(tx);
-  }
 });
 
 console.log(`Retrieved ${transactions.length} transactions`);
@@ -256,11 +249,12 @@ Notes:
 
 ## Development
 
-1. [Setup local bitcoin enviroment](https://github.com/tetherto/wallet-lib-test-tools/blob/main/src/bitcoin/README.md)
+1. [Setup local bitcoin environment](https://github.com/tetherto/wallet-lib-test-tools/blob/main/src/bitcoin/README.md)
 2. clone repo
-3. start hacking!
+3. `npm install`
+4. run various test: `npm run test:pay`
 
-## Testing
+### Testing
 
 - There is extensive integration tests for this package. 
 - We use Brittle for testing. Checkout package.json for various test commands.
