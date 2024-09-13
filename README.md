@@ -294,14 +294,6 @@ btcPay.on('new-tx', (transaction) => {
 
 ## 🛠️ Development
 
-// ... [Previous development section remains unchanged]
-
-### 🧪 Testing
-
-// ... [Previous testing section remains unchanged]
-
-## 🛠️ Development
-
 1. [Setup local bitcoin environment](https://github.com/tetherto/wallet-lib-test-tools/blob/main/src/bitcoin/README.md)
 2. clone repo
 3. `npm install`
