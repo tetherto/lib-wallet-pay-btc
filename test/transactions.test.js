@@ -173,7 +173,7 @@ test.test('Spending whole UTXO for amount, not enough to pay for fees', { timeou
   t.fail('should have thrown error')
 })
 
-test.solo('perform 2 transactions from 1 utxo before confirmation. Spending from change address', { timeout: 600000 }, async function (t) {
+test.test('perform 2 transactions from 1 utxo before confirmation. Spending from change address', { timeout: 600000 }, async function (t) {
   // We create a new wallet, send 2 utxo. we attempt to spend 1 whole utxo with amount
   // In order to pay for the fee, we must utilise the second utxo to pay for fees
   const regtest = await regtestNode()
