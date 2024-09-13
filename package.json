@@ -33,7 +33,7 @@
     "url": "https://github.com/tetherto/lib-wallet-pay-btc.git"
   },
   "author": "rbndg (@rbndg)",
-  "license": "MIT",
+  "license": "APACHE2.0",
   "bugs": {
     "url": "https://github.com/tetherto/lib-wallet-pay-btc/issues"
   },

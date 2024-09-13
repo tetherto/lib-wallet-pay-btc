@@ -28,6 +28,12 @@ const seed = await BIP39Seed.generate(/** Can enter mnemonic phrase here to **/)
 const provider = await Electrum({ store: storeEngine, host, port })
 await provider.connect()
 
+// setup key manager for managing address generation
+const km = new KeyManager({
+    seed
+  })
+await km.init()
+
 // Start new Bitcoin wallet
 const btcPay = new BitcoinPay({
   // Asset name is a unique key for the assets
@@ -36,9 +42,7 @@ const btcPay = new BitcoinPay({
   // Electrum provider.
   provider,
   // Key manager: handle address generation library from seed.
-  key_manager: new KeyManager({
-    seed
-  }),
+  key_manager: km,
   // Wallet store: Storage engine for the wallet
   store: storeEngine
   // Network: network type, regtest, testnet, mainnet
@@ -218,6 +222,35 @@ const txOpts = {
 const tx = await wallet.sendTransaction(txOpts, true);
 console.log('Transaction sent!'); // Output: confirmation message when the transaction is sent
 ```
+
+#### `getTransactions(fn)`
+* **Description**: Retrieves transaction history from the history store. This method iterates through all entries in the history store and processes transactions using the provided callback function.
+* **Return Value**: A Promise that resolves when all transactions have been processed (or a rejection with an error if an exception occurs).
+* **Parameters**:
+  + `fn` (Function): A callback function to process each set of transactions. This function is called for each block height entry in the history store.
+
+Example usage:
+```javascript
+const addressManager = new AddressManager(config);
+await addressManager.init();
+
+const transactions = [];
+
+await addressManager.getTransactions(async (txs) => {
+  for (const tx of txs) {
+    transactions.push(tx);
+  }
+});
+
+console.log(`Retrieved ${transactions.length} transactions`);
+```
+
+Notes:
+- The callback function `fn` should be an async function that takes one parameter: an array of transaction objects for a specific block height.
+- This method retrieves all transactions stored in the history store, including those in the mempool (height 0).
+- Transactions are grouped by block height in the history store.
+- The method uses the `entries` method of the underlying store, which may have performance implications for large transaction histories.
+
 
 ## Testing
 
