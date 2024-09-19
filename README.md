@@ -168,7 +168,6 @@ console.log(newAddress); // Output: a newly generated Bitcoin address
 
 Example usage:
 ```javascript
-const wallet = new WalletPayBitcoin();
 const balance = await wallet.getBalance();
 console.log(balance); // Output: the balance of the entire wallet
 
@@ -185,7 +184,6 @@ console.log(balanceForAddress); // Output: the balance for a specific address
 
 Example usage:
 ```javascript
-const wallet = new WalletPayBitcoin();
 await wallet.syncTransactions();
 console.log('Syncing complete!'); // Output: confirmation message when syncing is done
 ```
@@ -197,7 +195,6 @@ console.log('Syncing complete!'); // Output: confirmation message when syncing i
 
 Example usage:
 ```javascript
-const wallet = new WalletPayBitcoin();
 wallet.pauseSync();
 console.log('Syncing paused!'); // Output: confirmation message when syncing is paused
 ```
@@ -216,7 +213,6 @@ console.log('Syncing paused!'); // Output: confirmation message when syncing is 
 
 Example usage:
 ```javascript
-const wallet = new WalletPayBitcoin();
 const txOpts = {
   address: '',
   unit: 'sats',
