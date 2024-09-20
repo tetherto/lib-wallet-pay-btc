@@ -12,13 +12,12 @@ See the module in action [here](https://github.com/tetherto/lib-wallet/tree/main
 - 💰 Internal UTXO management not reliant on electrum.
 - 🧮 Internal balance calculation. not reliant on electrum.
 - 📡 Transaction broadcasting
-- 🧩 Modular design. drop in Seed/storage/block source components
+- 🧩 Modular design. drop in seed/storage/block source components
 
 ## 🚀 Usage
 
 ```javascript
 // Start with a storage engine
-// 
 const storeEngine = new WalletStoreMemory()
 await storeEngine.init()
 
@@ -26,7 +25,6 @@ await storeEngine.init()
 const seed = await BIP39Seed.generate(/** Can enter mnemonic phrase here to **/)
 
 // Connect to an electrum server.
-// This class needs a storage engine for caching.
 // host and port are the electrum server details.
 // Additional options can be passed to the Electrum class with regards to caching.
 const provider = await Electrum({ store: storeEngine, host, port })
@@ -120,9 +118,6 @@ const result = await btcPay.sendTransaction({}, {
 
   fee: 10, // Fees in sats per vbyte. 10 = 10 sat/vByte
 }))
-
-// Get a transaction by txid
-const tx = await btcPay.getTransaction(result.txid)
 
 // Get a list of transactions
 const txs = await btcPay.getTransactions(query)
