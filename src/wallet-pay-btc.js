@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 'use strict'
+
 const { WalletPay, HdWallet } = require('lib-wallet')
 const Transaction = require('./transaction.js')
 const SyncManager = require('./sync-manager.js')
@@ -52,6 +52,7 @@ class WalletPayBitcoin extends WalletPay {
     this.keyManager = config.key_manager || null
     // @desc: Only supported address type.
     this._addressType = 'p2wpkh'
+    this.Currency = Bitcoin
   }
 
   /**

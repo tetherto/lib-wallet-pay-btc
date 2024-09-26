@@ -58,7 +58,6 @@ class SyncManager extends EventEmitter {
         console.log('failed to update addr balance', err)
         return
       }
-      this.emit('new-tx')
     })
 
     this.reset()
@@ -199,9 +198,7 @@ class SyncManager extends EventEmitter {
     await this._processHistory(newTx)
     await this._unspent.process()
 
-    if (arr.length > 0) {
-      this.emit('new-tx')
-    }
+
   }
 
   /**
@@ -390,6 +387,16 @@ class SyncManager extends EventEmitter {
 
       /** @desc Add to unspent store for future signings */
       await _unspent.add(utxo, inout)
+      this.emit('new-tx', {
+        address: utxo.address,
+        value: utxo.value,
+        txid: utxo.txid,
+        height: utxo.height,
+        address_path: utxo.address_path,
+        address_public_key: utxo.address_public_key,
+        state: txState
+      })
+
     }))
   }
 
@@ -413,6 +420,7 @@ class SyncManager extends EventEmitter {
   getTransactions (fn) {
     return this._addr.getTransactions(fn)
   }
+
 }
 
 module.exports = SyncManager
