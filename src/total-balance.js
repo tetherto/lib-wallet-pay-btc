@@ -97,10 +97,9 @@ class TotalBalance {
 
   /**
    * Persists the current total balance state to storage.
-   * @private
    */
   async _persistBalance () {
-    return this.state.setTotalBalance()
+    return this.state.setTotalBalance(this.totalBalance)
   }
 }
 
