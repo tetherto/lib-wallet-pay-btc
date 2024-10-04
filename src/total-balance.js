@@ -19,7 +19,7 @@ const { Balance } = require('./address-manager.js')
  */
 class TotalBalance {
   /**
-   * Creates a new BalanceManager instance.
+   * Creates a new TotalBalance instance.
    * @param {Object} config - The configuration object.
    * @param {Object} config.store - The storage interface for persisting balance data.
    */
@@ -33,16 +33,16 @@ class TotalBalance {
   }
 
   /**
-   * Initializes the BalanceManager by loading stored total balance.
+   * Initializes the TotalBalance  by loading stored total balance.
    */
   async init () {
     try {
       const storedTotal = await this.state.getTotalBalance()
       if (storedTotal) {
         this.totalBalance = {
-          in: new Balance(storedTotal.in.confirmed, storedTotal.in.pending, storedTotal.in.mempool),
-          out: new Balance(storedTotal.out.confirmed, storedTotal.out.pending, storedTotal.out.mempool),
-          fee: new Balance(storedTotal.fee.confirmed, storedTotal.fee.pending, storedTotal.fee.mempool)
+          in: new Balance(storedTotal.in.confirmed, storedTotal.in.pending, storedTotal.in.mempool, storedTotal.in.txid),
+          out: new Balance(storedTotal.out.confirmed, storedTotal.out.pending, storedTotal.out.mempool, storedTotal.out.txid),
+          fee: new Balance(storedTotal.fee.confirmed, storedTotal.fee.pending, storedTotal.fee.mempool, storedTotal.fee.txid)
         }
       }
     } catch (error) {

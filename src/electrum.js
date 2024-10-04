@@ -37,6 +37,10 @@ class RequestCache {
     this._closing = false
   }
 
+  async clear () {
+    return this.store.clear()
+  }
+
   async stop () {
     clearInterval(this._timer)
     return this.store.close()
@@ -278,7 +282,9 @@ class Electrum extends EventEmitter {
       return data
     }
     const cacheValue = await cache.get(txid)
-    if (cacheValue) return cacheValue
+    if (cacheValue && cacheValue.height !== 0) {
+      return cacheValue
+    }
     let data = await this._getTransaction(txid)
     data = this._procTxHeight(data)
     await cache.set(txid, data)

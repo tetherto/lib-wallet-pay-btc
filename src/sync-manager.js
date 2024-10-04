@@ -56,10 +56,9 @@ class SyncManager extends EventEmitter {
         await this._updateScriptHashBalance(changeHash)
       } catch (err) {
         console.log('failed to update addr balance', err)
-        return 
       }
     })
-
+    this._ready = false
     this.reset()
   }
 
@@ -77,6 +76,7 @@ class SyncManager extends EventEmitter {
       state: this.state
     })
     await this._totalBal.init()
+    this._ready = true
   }
 
   async reset () {
@@ -218,6 +218,7 @@ class SyncManager extends EventEmitter {
       }
       return tx
     }))
+
     await _addr.storeTxHistory(txHistory)
 
     txHistory.forEach((tx) => {
@@ -234,8 +235,9 @@ class SyncManager extends EventEmitter {
     const { hash: scriptHash } = keyManager.pathToScriptHash(path, this._addressType)
     let txHistory
     try {
-      txHistory = await provider.getAddressHistory({}, scriptHash)
+      txHistory = await provider.getAddressHistory({ cache: true }, scriptHash)
     } catch (e) {
+      console.log('failed to get address history', e)
       return signal.stop
     }
     if (_halt) return signal.stop
@@ -259,6 +261,7 @@ class SyncManager extends EventEmitter {
 
     if (opts?.restart) {
       await hdWallet.resetSyncState()
+      await this.provider.cache.clear()
       await this._addr.clear()
     }
 
@@ -288,6 +291,7 @@ class SyncManager extends EventEmitter {
   * @return {Promise}
   **/
   async getBalance (addr) {
+    if (!this._ready) throw new Error('sync manager is not ready')
     if (!addr) {
       return this._totalBal.getSpendableBalance()
     }

@@ -199,7 +199,7 @@ test('getTransactions', async (t) => {
     const btcPay = await activeWallet({ newWallet: true })
     // const max = btcPay._syncManager._max_script_watch
 
-    async function newTx () {
+    async function newTx (tx) {
       t.comment('checking balance transition between confirmed/pending/mempool', state, send)
       for (const key in send) {
         const addr = key
