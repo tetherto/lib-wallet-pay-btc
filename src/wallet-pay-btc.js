@@ -86,7 +86,7 @@ class WalletPayBitcoin extends WalletPay {
     await super.initialize(wallet)
 
     if (!this.keyManager.network) {
-      this.keyManager.setNetwork(this.network)
+      this.keyManager.setNestwork(this.network)
     }
 
     if (!this.provider) {
@@ -98,9 +98,16 @@ class WalletPayBitcoin extends WalletPay {
       await this.provider.connect()
     }
 
+    let coinType
+    if (['bitcoin', 'mainnet'].includes(this.network)) {
+      coinType = "0'"
+    } else {
+      coinType = "1'"
+    }
+
     this._hdWallet = new HdWallet({
       store: this.store.newInstance({ name: 'hdwallet' }),
-      coinType: "0'",
+      coinType,
       purpose: "84'",
       gapLimit: this.gapLimit
     })
