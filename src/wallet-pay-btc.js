@@ -213,7 +213,7 @@ class WalletPayBitcoin extends WalletPay {
   /**
   * Sync transactions
   * @param {Object} opts - Options
-  * @param {Number} opts.restart - Restart sync from 0
+  * @param {Number} opts.reset - Restart sync from 0
   */
   async syncTransactions (opts = {}) {
     const { _syncManager } = this
