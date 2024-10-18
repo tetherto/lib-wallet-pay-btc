@@ -323,6 +323,10 @@ btcPay.on('new-tx', (transaction) => {
 3. `npm install`
 4. run various test: `npm run test:pay`
 
+### 🔗 Links
+- [List of Electrum nodes](https://1209k.com/bitcoin-eye/ele.php) (Fulcrum recommended)
+- [WDK test tools](https://github.com/tetherto/wallet-lib-test-tools/tree/main/src/bitcoin)
+
 ### 🧪 Testing
 
 - There is extensive integration tests for this package. 
