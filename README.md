@@ -1,15 +1,17 @@
-<p align="center">
-  <img src="https://github.com/rbndg/lib-wallet/blob/main/docs/logo.svg" />
-</p>
-
 
 # 🏦 lib-wallet-pay-btc
 
 Bitcoin payment method for WDK. Powered by Electrum protocol.
 
 ## 💼 WDK
+<p align="center" width="100">
+  <img src="https://github.com/rbndg/lib-wallet/blob/main/docs/logo.svg" />
+</p>
+
 This library is part of the [Wallet SDK](https://github.com/tetherto/lib-wallet)
 See the module in action [here](https://github.com/tetherto/lib-wallet/tree/main/example)
+
+
 
 
 ## ✨ Features:
