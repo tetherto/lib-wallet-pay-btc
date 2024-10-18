@@ -1,13 +1,15 @@
 
+<p align="center" width="100">
+<a href="https://github.com/rbndg/lib-wallet">
+<img src="https://github.com/rbndg/lib-wallet/blob/main/docs/logo.svg" width="200"/>
+</a>
+</p>
+
+
+
 # 🏦 lib-wallet-pay-btc
 
 Bitcoin payment method for WDK. Powered by Electrum protocol.
-
-<p align="center" width="100">
-<img src="https://github.com/rbndg/lib-wallet/blob/main/docs/logo.svg" i width="100"/><br>
-This library is part of the <a href="https://github.com/rbndg/lib-wallet">Wallet SDK</a>
-</p>
-
 
 
 
