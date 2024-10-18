@@ -86,7 +86,7 @@ class WalletPayBitcoin extends WalletPay {
     await super.initialize(wallet)
 
     if (!this.keyManager.network) {
-      this.keyManager.setNestwork(this.network)
+      this.keyManager.setNetwork(this.network)
     }
 
     if (!this.provider) {
