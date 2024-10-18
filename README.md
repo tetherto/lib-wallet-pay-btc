@@ -5,7 +5,7 @@ Bitcoin payment method for WDK. Powered by Electrum protocol.
 
 ## 💼 WDK
 <p align="center" width="100">
-  <img src="https://github.com/rbndg/lib-wallet/blob/main/docs/logo.svg" />
+  <img src="https://github.com/rbndg/lib-wallet/blob/main/docs/logo.svg" i width="100"/>
 </p>
 
 This library is part of the [Wallet SDK](https://github.com/tetherto/lib-wallet)
