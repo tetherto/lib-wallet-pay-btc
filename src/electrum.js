@@ -22,11 +22,10 @@ function getBlockReward (height) {
   const initialReward = Bitcoin.BN(50).times(100000000) // 50 BTC in satoshis
   const halvingInterval = 210000
   const halvings = Math.floor(height / halvingInterval)
-
   const reward = initialReward.dividedBy(Bitcoin.BN(2).pow(halvings))
-
   return new Bitcoin(reward, 'base')
 }
+
 
 /**
 * @class RequestCache
@@ -122,6 +121,11 @@ class Electrum extends EventEmitter {
     this._max_attempt = 10
     this._reconnect_interval = 2000
     this._closed = false
+  }
+
+  static OutTypes = {
+    0: 'non-standard',
+    1: 'standard'
   }
 
   _subscribe () {
@@ -314,13 +318,17 @@ class Electrum extends EventEmitter {
 
     const tx = await this._txGet(txid, opts)
     data.height = tx.height
+    data.std_out = []
+    data.std_in = []
 
     let totalOut = new Bitcoin(0, 'main')
     data.out = tx.vout.map((vout) => {
       const newvout = this._processTxVout(vout, tx)
       if (!newvout.address) {
+        data.std_out.push(false)
         return null
       }
+      data.std_out.push(true)
       totalOut = totalOut.add(newvout.value)
       newvout.tx_height = tx.height
       return newvout
@@ -330,15 +338,18 @@ class Electrum extends EventEmitter {
     data.in = await Promise.all(tx.vin.map(async (vin) => {
       if (vin.coinbase) {
         const value = getBlockReward(tx.height - 1)
+        data.std_in.push(false)
         return {
           prev_txid: `${vin.coinbase}00000000`,
           prev_index: 0,
           prev_tx_height: tx.height - 1,
           txid: vin.coinbase,
           address: vin.coinbase,
+          out_type: 0,
           value
         }
       }
+      data.std_out.push(false)
       const txDetail = await this._txGet(vin.txid, opts)
       const newvin = this._processTxVout(txDetail.vout[vin.vout], tx)
       newvin.prev_txid = vin.txid
