@@ -17,6 +17,16 @@ const { EventEmitter } = require('events')
 const Bitcoin = require('./currency')
 
 // TODO: handle unsupported electrum RPC methods
+//
+function getBlockReward (height) {
+  const initialReward = Bitcoin.BN(50).times(100000000) // 50 BTC in satoshis
+  const halvingInterval = 210000
+  const halvings = Math.floor(height / halvingInterval)
+
+  const reward = initialReward.dividedBy(Bitcoin.BN(2).pow(halvings))
+
+  return new Bitcoin(reward, 'base')
+}
 
 /**
 * @class RequestCache
@@ -308,13 +318,27 @@ class Electrum extends EventEmitter {
     let totalOut = new Bitcoin(0, 'main')
     data.out = tx.vout.map((vout) => {
       const newvout = this._processTxVout(vout, tx)
+      if (!newvout.address) {
+        return null
+      }
       totalOut = totalOut.add(newvout.value)
       newvout.tx_height = tx.height
       return newvout
-    })
+    }).filter(Boolean)
 
     let totalIn = new Bitcoin(0, 'main')
     data.in = await Promise.all(tx.vin.map(async (vin) => {
+      if (vin.coinbase) {
+        const value = getBlockReward(tx.height - 1)
+        return {
+          prev_txid: `${vin.coinbase}00000000`,
+          prev_index: 0,
+          prev_tx_height: tx.height - 1,
+          txid: vin.coinbase,
+          address: vin.coinbase,
+          value
+        }
+      }
       const txDetail = await this._txGet(vin.txid, opts)
       const newvin = this._processTxVout(txDetail.vout[vin.vout], tx)
       newvin.prev_txid = vin.txid
@@ -324,13 +348,20 @@ class Electrum extends EventEmitter {
       totalIn = totalIn.add(newvin.value)
       return newvin
     }))
-    data.fee = totalIn.minus(totalOut)
+
+    if (totalIn.toNumber() === 0) {
+      data.fee = totalIn
+    } else {
+      data.fee = totalIn.minus(totalOut)
+    }
+
     return data
   }
 
   _getTxAddress (scriptPubKey) {
     if (scriptPubKey.address) return scriptPubKey.address
     if (scriptPubKey.addresses) return scriptPubKey.addresses
+    // Non standard outputs like OP_RETURN..etc
     return null
   }
 
