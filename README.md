@@ -20,6 +20,7 @@ Bitcoin payment method for WDK. Powered by Electrum protocol.
 - 🧮 Internal balance calculation. 
 - 📡 Transaction broadcasting
 - 🧩 Modular design. drop in seed/storage/block source components
+- 💎 Optimised for regular transactions. OP_RETURN, non standard, coinbase transactions not supported
 
 ## Terminology
 ### Wallet Software
