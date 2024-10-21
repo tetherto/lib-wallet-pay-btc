@@ -313,13 +313,13 @@ class Electrum extends EventEmitter {
       txid,
       out: [],
       in: [],
-      unconfirmed_inputs: []
+      unconfirmed_inputs: [],
+      std_out: [],
+      std_in: []
     }
 
     const tx = await this._txGet(txid, opts)
     data.height = tx.height
-    data.std_out = []
-    data.std_in = []
 
     let totalOut = new Bitcoin(0, 'main')
     data.out = tx.vout.map((vout) => {
@@ -349,7 +349,7 @@ class Electrum extends EventEmitter {
           value
         }
       }
-      data.std_out.push(false)
+      data.std_in.push(false)
       const txDetail = await this._txGet(vin.txid, opts)
       const newvin = this._processTxVout(txDetail.vout[vin.vout], tx)
       newvin.prev_txid = vin.txid

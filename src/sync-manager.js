@@ -362,9 +362,10 @@ class SyncManager extends EventEmitter {
         if (addrObj.addr.address !== utxo.address) return
         await hdWallet.addAddress(addrObj.addr)
         addr = await hdWallet.getAddress(addrObj.addr.address)
-      } else if (!addr) {
-        return
-      }
+      } 
+
+      if(!addr) return 
+      
 
       /** @type {string} Unique UTXO identifier */
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
