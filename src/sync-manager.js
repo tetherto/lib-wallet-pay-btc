@@ -390,15 +390,17 @@ class SyncManager extends EventEmitter {
 
       /** @desc Add to unspent store for future signings */
       await _unspent.add(utxo, inout)
-      this.emit('new-tx', {
-        address: utxo.address,
-        value: utxo.value,
-        txid: utxo.txid,
-        height: utxo.height,
-        address_path: utxo.address_path,
-        address_public_key: utxo.address_public_key,
-        state: txState
-      })
+      if(inout === 'out') {
+        this.emit('new-tx', {
+          address: utxo.address,
+          value: utxo.value,
+          txid: utxo.txid,
+          height: utxo.height,
+          address_path: utxo.address_path,
+          address_public_key: utxo.address_public_key,
+          state: txState
+        })
+      }
     }))
   }
 
