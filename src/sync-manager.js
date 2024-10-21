@@ -20,10 +20,13 @@ const { AddressManager } = require('./address-manager.js')
 const AddressWatch = require('./address-watch.js')
 const TotalBalance = require('./total-balance.js')
 
+const P2WPKH = 'p2wpkh'
+
 /**
  * Class that manages syncing local state with electrum/blockchain.
 **/
 class SyncManager extends EventEmitter {
+
   constructor (config) {
     super()
 
@@ -355,14 +358,14 @@ class SyncManager extends EventEmitter {
       let addr = await hdWallet.getAddress(utxo.address)
 
       if (!bal) {
-      /** @desc Create new address if balance doesn't exist */
+        /** @desc Create new address record if balance doesn't exist */
         await _addr.newAddress(utxo.address)
         bal = await _addr.get(utxo.address)
       }
 
       if (path && !addr) {
-      /** @desc Derive address from path if not in HD wallet */
-        const addrObj = keyManager.pathToScriptHash(path, 'p2wpkh')
+        /** @desc Derive address from path if not in HD wallet */
+        const addrObj = keyManager.pathToScriptHash(path, P2WPKH)
         if (addrObj.addr.address !== utxo.address) return
         await hdWallet.addAddress(addrObj.addr)
         addr = await hdWallet.getAddress(addrObj.addr.address)
@@ -380,7 +383,7 @@ class SyncManager extends EventEmitter {
       utxo.address_public_key = addr.publicKey
       utxo.address_path = addr.path
 
-      /** @desc Update balances */
+      /** @desc Mark point as processed */
       bal[inout].addTxid(txState, point, utxo.value)
       _totalBal.addTxId(inout, txState, utxo, point, txFee)
 

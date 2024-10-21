@@ -24,6 +24,7 @@ async function loadWASM () {
 }
 
 class WalletKeyBitcoin {
+
   constructor (config = {}) {
     this._config = config
   }
