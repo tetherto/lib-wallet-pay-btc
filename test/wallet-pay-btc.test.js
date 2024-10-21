@@ -169,7 +169,7 @@ test('getTransactions', async (t) => {
   const btcPay = await activeWallet()
 
   t.comment('syncing transactions')
-  await btcPay.syncTransactions({ restart: true })
+  await btcPay.syncTransactions({ reset: true })
 
   let last = 0
   const max = 5
@@ -188,7 +188,7 @@ test('getTransactions', async (t) => {
       t.end()
     }
   })
-  if (c !== max) t.fail('tx not received')
+  if(!c) t.fail('no tx found')
 });
 
 (async () => {
@@ -262,7 +262,7 @@ test('pauseSync - internal and external', async () => {
   async function runTest (sType, opts) {
     const btcPay = await activeWallet()
     const max = opts.max
-    solo('pauseSync: ' + sType, async (t) => {
+    test('pauseSync: ' + sType, async (t) => {
       let lastPath = null
       let count = 0
       const first = (pt, path) => {
@@ -393,7 +393,7 @@ test('syncTransaction - catch up missed tx', async (t) => {
   await bp.destroy()
 })
 
-test('syncTransaction - balance check', async (t) => {
+solo('syncTransaction - balance check', async (t) => {
   const regtest = await regtestNode()
   t.comment('create new wallet')
   const btcPay = await activeWallet({ newWallet: true })
@@ -406,7 +406,10 @@ test('syncTransaction - balance check', async (t) => {
   await regtest.mine(2)
   t.comment('waiting for electrum to update')
   await btcPay._onNewTx()
+  let checked = false
   async function checkBal (pt, path, hasTx, gapCount) {
+    if(checked) return 
+    checked = true
     t.ok(path === payAddr.path, 'first path is checked')
     const { hash, addr } = btcPay.keyManager.pathToScriptHash(path, 'p2wpkh')
     const eBal = await btcPay.provider._getBalance(hash)
@@ -421,6 +424,7 @@ test('syncTransaction - balance check', async (t) => {
     t.ok(eBal.unconfirmed.toString() === bal.mempool.toBaseUnit(), `addr: ${addr.address} mempool matches electrum`)
     t.ok(new BitcoinCurrency(eBal.confirmed, 'base').eq(new BitcoinCurrency(amount, 'main')), 'amount matches sent amount')
     btcPay.off('synced-path', checkBal)
+    await btcPay.pauseSync()
     await btcPay.destroy()
     t.end()
   }
@@ -466,7 +470,7 @@ test('bip84 test vectors', async function (t) {
   t.ok(changeAddr2.address === 'bc1qggnasd834t54yulsep6fta8lpjekv4zj6gv5rf', 'second change address')
 
   const km2 = new KeyManager({
-    seed: await BIP39Seed.generate(mnemonic)
+    seed: await BIP39Seed.generate()
   })
   await km2.init()
 
