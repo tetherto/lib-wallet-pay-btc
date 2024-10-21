@@ -195,8 +195,12 @@ class SyncManager extends EventEmitter {
       return
     }
 
-    await this._processHistory(newTx)
-    await this._unspent.process()
+    try {
+      await this._processHistory(newTx)
+      await this._unspent.process()
+    } catch (err) {
+      console.log('failed to process block', err)
+    }
   }
 
   /**
@@ -362,10 +366,9 @@ class SyncManager extends EventEmitter {
         if (addrObj.addr.address !== utxo.address) return
         await hdWallet.addAddress(addrObj.addr)
         addr = await hdWallet.getAddress(addrObj.addr.address)
-      } 
+      }
 
-      if(!addr) return 
-      
+      if (!addr) return
 
       /** @type {string} Unique UTXO identifier */
       const point = inout === 'out' ? utxo.txid + ':' + utxo.index : utxo.prev_txid + ':' + utxo.prev_index
@@ -390,7 +393,7 @@ class SyncManager extends EventEmitter {
 
       /** @desc Add to unspent store for future signings */
       await _unspent.add(utxo, inout)
-      if(inout === 'out') {
+      if (inout === 'out') {
         this.emit('new-tx', {
           address: utxo.address,
           value: utxo.value,

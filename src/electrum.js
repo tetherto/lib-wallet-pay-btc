@@ -26,7 +26,6 @@ function getBlockReward (height) {
   return new Bitcoin(reward, 'base')
 }
 
-
 /**
 * @class RequestCache
 * @desc Cache requests to electrum server
@@ -267,10 +266,12 @@ class Electrum extends EventEmitter {
   }
 
   _processTxVout (vout, tx) {
+    if (!vout.value || vout.value <= 0) return null
+
     return {
       address: this._getTxAddress(vout.scriptPubKey),
       value: new Bitcoin(vout.value, 'main'),
-      witness_hex: vout.scriptPubKey.hex,
+      witness_hex: vout?.scriptPubKey.hex,
       index: vout.n,
       txid: tx.txid,
       height: tx.height
@@ -326,7 +327,6 @@ class Electrum extends EventEmitter {
       const newvout = this._processTxVout(vout, tx)
       if (!newvout.address) {
         data.std_out.push(false)
-        return null
       }
       data.std_out.push(true)
       totalOut = totalOut.add(newvout.value)
@@ -371,8 +371,8 @@ class Electrum extends EventEmitter {
 
   _getTxAddress (scriptPubKey) {
     if (scriptPubKey.address) return scriptPubKey.address
-    if (scriptPubKey.addresses) return scriptPubKey.addresses
-    // Non standard outputs like OP_RETURN..etc
+    // if (scriptPubKey.addresses) return scriptPubKey.addresses
+    // Non standard outputs like OP_RETURN, multi-sig
     return null
   }
 

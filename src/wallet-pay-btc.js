@@ -131,9 +131,17 @@ class WalletPayBitcoin extends WalletPay {
 
     this.block = new BlockCounter({ state: this.state })
     await this.block.init()
-    this.block.on('new-block', async (block) => {
-      this.emit('new-block', block)
-      await this._syncManager.updateBlock(block)
+
+    let isBlockLoaded = false
+    const newBlock = new Promise((resolve) => {
+      this.block.on('new-block', async (block) => {
+        this.emit('new-block', block)
+        await this._syncManager.updateBlock(block)
+        if (!isBlockLoaded) {
+          isBlockLoaded = true
+          resolve()
+        }
+      })
     })
 
     await this.state.init()
@@ -158,7 +166,8 @@ class WalletPayBitcoin extends WalletPay {
     this._syncManager.on('new-tx', (...args) => {
       this.emit('new-tx', ...args)
     })
-    return Promise.resolve(electrum)
+
+    return Promise.all([newBlock, electrum])
   }
 
   _onNewTx () {
@@ -169,7 +178,7 @@ class WalletPayBitcoin extends WalletPay {
 
   async _getNewAddr (config) {
     const addrType = this._addressType
-    const res = await this._hdWallet.getNewAddress((path) => {
+    const res = await this._hdWallet.getNewAddress(config.inout, (path) => {
       return this.keyManager.pathToScriptHash(path, addrType)
     })
     await this._syncManager.watchAddress([res.hash, res.addr], config.inout)
