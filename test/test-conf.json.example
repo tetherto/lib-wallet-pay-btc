@@ -1,4 +1,4 @@
 {
   "electrum_port" : 8001,
-  "electrum_host" : 8001,
+  "electrum_host" : "127.0.0.1"
 }
