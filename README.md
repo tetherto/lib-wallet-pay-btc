@@ -56,7 +56,7 @@ const seed = await BIP39Seed.generate(/** Can enter mnemonic phrase here to **/)
 // host and port are the electrum server details.
 // Additional options can be passed to the Electrum class with regards to caching.
 // host and port for this is your Fulcrum (Electrum) node TCP port
-const provider = await Electrum({ store: storeEngine, host, port })
+const provider = new  Electrum({ store: storeEngine, host, port })
 await provider.connect()
 
 // setup key manager for managing address generation
