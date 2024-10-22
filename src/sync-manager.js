@@ -26,7 +26,6 @@ const P2WPKH = 'p2wpkh'
  * Class that manages syncing local state with electrum/blockchain.
 **/
 class SyncManager extends EventEmitter {
-
   constructor (config) {
     super()
 
@@ -298,7 +297,6 @@ class SyncManager extends EventEmitter {
   * @return {Promise}
   **/
   async getBalance (addr) {
-    if (!this._ready) throw new Error('sync manager is not ready')
     if (!addr) {
       return this._totalBal.getSpendableBalance()
     }

@@ -266,7 +266,6 @@ class Electrum extends EventEmitter {
   }
 
   _processTxVout (vout, tx) {
-
     return {
       address: this._getTxAddress(vout.scriptPubKey),
       value: new Bitcoin(vout.value, 'main'),
@@ -326,7 +325,7 @@ class Electrum extends EventEmitter {
       const newvout = this._processTxVout(vout, tx)
       if (!newvout || !newvout.address) {
         data.std_out.push(false)
-        return 
+        return null
       }
       data.std_out.push(true)
       totalOut = totalOut.add(newvout.value)
@@ -371,8 +370,8 @@ class Electrum extends EventEmitter {
 
   _getTxAddress (scriptPubKey) {
     if (scriptPubKey.address) return scriptPubKey.address
-    //if (scriptPubKey.addresses) return scriptPubKey.addresses
-    //Non standard outputs like OP_RETURN, multi-sig
+    // if (scriptPubKey.addresses) return scriptPubKey.addresses
+    // Non standard outputs like OP_RETURN, multi-sig
     return null
   }
 
