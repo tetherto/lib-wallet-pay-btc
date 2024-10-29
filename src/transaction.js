@@ -33,7 +33,13 @@ class Transaction extends EventEmitter {
 
   async send (opts) {
     const tx = await this._createTransaction(opts)
-    const txid = await this._broadcastTransaction(tx)
+    let txid
+    try {
+      txid = await this._broadcastTransaction(tx)
+    } catch(err) {
+      console.log(err)
+      throw new Error('failed to broadcast tx')
+    }
     if (txid?.message) {
       this._syncManager.unlockUtxo(false)
       throw new Error('Broadcast failed: ' + txid.message.split('\n').shift())
@@ -124,8 +130,20 @@ class Transaction extends EventEmitter {
 
     // Generate a fake transaction to determine weight of the transaction
     // then we create a new tx with correct fee
-    const fakeTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr)
-    const realTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, fakeTx.vSize)
+    let fakeTx, realTx
+
+    try {
+      fakeTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr)
+    } catch(err) {
+      throw new Error('Failed to simulate tx: '+ err.message)
+    }
+
+    try { 
+      realTx = await this._generateRawTx(utxoSet, fee, sendAmount, address, changeAddr, fakeTx.vSize)
+    } catch(err) {
+      throw new Error('failed to send transaction'+ err.message)
+    }
+
     realTx.changeAddress = changeAddr
     await this._syncManager.addSentTx(realTx)
     return realTx
