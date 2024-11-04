@@ -1,0 +1,45 @@
+{
+  "name": "lib-wallet-pay-btc",
+  "version": "0.0.1",
+  "description": "Bitcoin asset module for wallet sdk",
+  "main": "index.js",
+  "dependencies": {
+    "bip32": "4.0.0",
+    "bip39": "3.1.0",
+    "bitcoinjs-lib": "6.1.5",
+    "ecpair": "2.1.0",
+    "lib-wallet": "github:rbndg/lib-wallet",
+    "lib-wallet-store": "github:rbndg/lib-wallet-store",
+    "tiny-secp256k1": "2.2.3",
+    "wallet-seed-bip39": "github:rbndg/lib-wallet-seed-bip39"
+  },
+  "devDependencies": {
+    "brittle": "^3.5.0",
+    "standard": "^17.1.0"
+  },
+  "scripts": {
+    "lint": "standard --fix",
+    "test": "npm run test:all",
+    "test:all": "brittle ./test/*.js",
+    "test:sync": "brittle ./test/sync-manager.test.js",
+    "test:send-tx": "brittle ./test/transactions.test.js",
+    "test:pay": "brittle ./test/wallet-pay-btc.test.js",
+    "test:key": "brittle ./test/wallet-key-btc.test.js",
+    "test:currency": "brittle ./test/currency.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tetherto/lib-wallet-pay-btc.git"
+  },
+  "author": "rbndg (@rbndg)",
+  "license": "APACHE-2.0",
+  "bugs": {
+    "url": "https://github.com/tetherto/lib-wallet-pay-btc/issues"
+  },
+  "homepage": "https://github.com/tetherto/lib-wallet-pay-btc.git",
+  "standard" : {
+    "ignore": [
+      "/test/*.js"
+    ]
+  }
+}
