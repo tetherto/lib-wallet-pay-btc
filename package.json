@@ -1,17 +1,17 @@
 {
   "name": "lib-wallet-pay-btc",
   "version": "0.0.1",
-  "description": "Bitcoin asset module for wallet sdk",
+  "description": "Bitcoin asset module for WDK",
   "main": "index.js",
   "dependencies": {
     "bip32": "4.0.0",
     "bip39": "3.1.0",
     "bitcoinjs-lib": "6.1.5",
     "ecpair": "2.1.0",
-    "lib-wallet": "github:rbndg/lib-wallet",
-    "lib-wallet-store": "github:rbndg/lib-wallet-store",
+    "lib-wallet": "github:tetherto/lib-wallet",
+    "lib-wallet-store": "github:tetherto/lib-wallet-store",
     "tiny-secp256k1": "2.2.3",
-    "wallet-seed-bip39": "github:rbndg/lib-wallet-seed-bip39"
+    "wallet-seed-bip39": "github:tetherto/lib-wallet-seed-bip39"
   },
   "devDependencies": {
     "brittle": "^3.5.0",
