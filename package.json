@@ -8,10 +8,10 @@
     "bip39": "3.1.0",
     "bitcoinjs-lib": "6.1.5",
     "ecpair": "2.1.0",
-    "lib-wallet": "github:tetherto/lib-wallet",
-    "lib-wallet-store": "github:tetherto/lib-wallet-store",
+    "lib-wallet": "github:tetherto/lib-wallet#v0.0.1",
+    "lib-wallet-store": "github:tetherto/lib-wallet-store#v0.0.1",
     "tiny-secp256k1": "2.2.3",
-    "wallet-seed-bip39": "github:tetherto/lib-wallet-seed-bip39"
+    "wallet-seed-bip39": "github:tetherto/lib-wallet-seed-bip39#v0.0.1"
   },
   "devDependencies": {
     "brittle": "^3.5.0",

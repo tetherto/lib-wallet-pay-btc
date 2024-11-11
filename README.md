@@ -1,7 +1,7 @@
 
 <p align="center" width="100">
 <a href="https://github.com/tetherto/lib-wallet">
-<img src="https://github.com/rbndg/lib-wallet/blob/main/docs/logo.svg" width="200"/>
+<img src="https://github.com/tetherto/lib-wallet/blob/main/docs/logo.svg" width="200"/>
 </a>
 </p>
 
