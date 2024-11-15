@@ -85,6 +85,7 @@ class UnspentStore {
     this.locked = await this.store.get('utxo_lock') || []
     this._lockedUtxo = []
     this._spentUtxo = []
+    await this.process()
   }
 
   async close () {
@@ -164,11 +165,12 @@ class UnspentStore {
     let done = false
 
     await this.vout.entries(async (v) => {
-      if (this.locked.includes(v.txid) || done) return
-      if (this._spentUtxo.includes(v.txid) || done) return
+      const pt = `${v.txid}:${v.index}`
+      if (this.locked.includes(pt) || done) return
+      if (this._spentUtxo.includes(pt) || done) return
       total = total.add(v.value)
       utxo.push(v)
-      await this.lock(v.txid)
+      await this.lock(pt)
       if (total.gte(amount)) {
         // TODO: SOME loop
         done = true
